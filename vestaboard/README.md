@@ -56,3 +56,23 @@ python3 send_message.py "{red}{orange}{yellow} Welcome home {yellow}{orange}{red
 - Letters are shown in capitals. Supported symbols: `! @ # $ ( ) - + & = ; : ' " % , . / ? °`
 - Vestaboard limits how often you can post (roughly once every 15 seconds), and
   sending the exact same message twice in a row is refused.
+
+## Daily love messages
+
+Every morning at **8am London time**, GitHub sends a line from a Robert Burns
+poem to the board. Your iPad doesn't need to be switched on. The messages are in
+`love_messages.txt`, one per line, and come out in a random order with no repeats
+until every message has been used.
+
+**Add or change messages:** edit `love_messages.txt` on GitHub (tap the file, then
+the pencil icon). Keep each one to a line; it's wrapped onto the board automatically.
+
+**Change the time:** in `.github/workflows/love-message.yml`, the two `cron` lines
+are in UTC. For 7am London time, change `0 7` → `0 6` and `0 8` → `0 7`, and make the
+same changes in the two `if` lines further down.
+
+**Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.
+
+**Note:** GitHub pauses scheduled jobs if nothing in the repository changes for 60
+days. It emails you first, and you can switch it back on from the Actions tab
+(or just edit a message).

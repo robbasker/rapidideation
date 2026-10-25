@@ -143,9 +143,12 @@ def main():
         sys.exit(f"Sorry: {error}")
 
     preview(board)
-    if args.preview:
-        return
+    if not args.preview:
+        send_to_board(board)
 
+
+def send_to_board(board):
+    """Send the board using the saved API key, explaining any problem in plain English."""
     api_key = load_api_key()
     if not api_key:
         sys.exit("No API key found. Put your key in vestaboard/api_key.txt (see README.md).")
