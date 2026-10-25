@@ -22,7 +22,11 @@ LOGIN_URL = "https://api.sonos.com/login/v3/oauth"
 TOKEN_URL = "https://api.sonos.com/login/v3/oauth/access"
 CONTROL_URL = "https://api.ws.sonos.com/control/api/v1"
 REDIRECT_URI = "https://github.com/robbasker/rapidideation"
-SOUNDS_URL = "https://cdn.jsdelivr.net/gh/robbasker/rapidideation@main/sonos/"
+# The sound files are served by jsDelivr from one fixed version of this repository.
+# (Using "@main" instead can serve an out-of-date copy for up to 12 hours.)
+# If you change or add a sound, update this to the newest commit ID that includes it.
+SOUNDS_VERSION = "3761deb41576e67e51ca6ba2cf10b4d022ff0586"
+SOUNDS_URL = f"https://cdn.jsdelivr.net/gh/robbasker/rapidideation@{SOUNDS_VERSION}/sonos/"
 DRUM_ROLL_URL = SOUNDS_URL + "drum_roll.wav"
 VOLUME = 40  # 0 to 100
 
@@ -81,8 +85,21 @@ def play_clip(access_token, player_id, url, volume, name="Drum roll"):
     })
 
 
+def check_sound_file(url):
+    """Make sure the speaker will be able to download the sound, and say so in the log."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=15) as response:
+            print(f"Sound file OK: {response.headers.get('Content-Type')}, "
+                  f"{response.headers.get('Content-Length')} bytes")
+    except urllib.error.HTTPError as error:
+        sys.exit(f"The speaker couldn't download the sound file ({error.code} {error.reason}): {url}")
+    except urllib.error.URLError as error:
+        sys.exit(f"Couldn't reach the sound file ({error.reason}): {url}")
+
+
 def play_sound(command):
     name, url = SOUNDS[command]
+    check_sound_file(url)
     settings = {}
     for setting in ("SONOS_CLIENT_ID", "SONOS_CLIENT_SECRET", "SONOS_REFRESH_TOKEN", "SONOS_PLAYER_ID"):
         settings[setting] = (os.environ.get(setting) or "").strip()
@@ -92,8 +109,8 @@ def play_sound(command):
         "grant_type": "refresh_token",
         "refresh_token": settings["SONOS_REFRESH_TOKEN"],
     })
-    play_clip(tokens["access_token"], settings["SONOS_PLAYER_ID"], url, VOLUME, name)
-    print(f"{name} playing!")
+    reply = play_clip(tokens["access_token"], settings["SONOS_PLAYER_ID"], url, VOLUME, name)
+    print(f"{name} sent to Sonos. Sonos's reply: {json.dumps(reply)}")
 
 
 def ask(prompt):
