@@ -51,7 +51,7 @@ python3 send_message.py "{red}{orange}{yellow} Welcome home {yellow}{orange}{red
 
 ## Good to know
 
-- The board is **6 lines × 22 characters**. Messages are word-wrapped and centred
+- This is set up for a **Vestaboard Note: 3 lines × 15 characters** (45 in total). Messages are word-wrapped and centred
   automatically; the script tells you if one is too long.
 - Letters are shown in capitals. Supported symbols: `! @ # $ ( ) - + & = ; : ' " % , . / ? °`
 - Vestaboard limits how often you can post (roughly once every 15 seconds), and

@@ -19,8 +19,8 @@ import urllib.error
 import urllib.request
 
 API_URL = "https://cloud.vestaboard.com/"
-ROWS = 6
-COLS = 22
+ROWS = 3
+COLS = 15
 
 # Vestaboard identifies each character by a number.
 CHAR_CODES = {" ": 0}
