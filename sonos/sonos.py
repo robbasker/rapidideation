@@ -76,7 +76,7 @@ def play_clip(access_token, player_id, url, volume):
 def drumroll():
     settings = {}
     for name in ("SONOS_CLIENT_ID", "SONOS_CLIENT_SECRET", "SONOS_REFRESH_TOKEN", "SONOS_PLAYER_ID"):
-        settings[name] = os.environ.get(name)
+        settings[name] = (os.environ.get(name) or "").strip()
         if not settings[name]:
             sys.exit(f"{name} isn't set, so there's no drum roll. See sonos/README.md.")
     tokens = get_tokens(settings["SONOS_CLIENT_ID"], settings["SONOS_CLIENT_SECRET"], {
