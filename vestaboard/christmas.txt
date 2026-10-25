@@ -1,0 +1,15 @@
+# The 12 Days of Christmas, one line per day (Christmas Day is day 1).
+# The gift, then a | and the name of the Sonos favourite to play that day.
+# Leave the song blank to have no music that day.
+A partridge in a pear tree |
+2 turtle doves |
+3 French hens |
+4 calling birds |
+5 gold rings |
+6 geese a-laying |
+7 swans a-swimming |
+8 maids a-milking |
+9 ladies dancing |
+10 lords a-leaping |
+11 pipers piping |
+12 drummers drumming |

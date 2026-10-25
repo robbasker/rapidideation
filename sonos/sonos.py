@@ -6,6 +6,8 @@ Play sounds on your Sonos speaker through the Sonos cloud.
     python3 sonos.py setup KEY SECRET 'ADDRESS'  finish signing in; tells you what to save on GitHub
     python3 sonos.py drumroll                    play the drum roll
     python3 sonos.py thinking                    play the thinking jingle
+    python3 sonos.py favourites                  list your Sonos favourites
+    python3 sonos.py song "NAME"                 play the Sonos favourite with that name
 
 Only uses Python's built-in libraries, so there is nothing to install.
 """
@@ -97,9 +99,8 @@ def check_sound_file(url):
         sys.exit(f"Couldn't reach the sound file ({error.reason}): {url}")
 
 
-def play_sound(command):
-    name, url = SOUNDS[command]
-    check_sound_file(url)
+def sign_in_from_secrets():
+    """Sign in with the saved GitHub secrets; returns (access token, speaker ID)."""
     settings = {}
     for setting in ("SONOS_CLIENT_ID", "SONOS_CLIENT_SECRET", "SONOS_REFRESH_TOKEN", "SONOS_PLAYER_ID"):
         settings[setting] = (os.environ.get(setting) or "").strip()
@@ -109,8 +110,57 @@ def play_sound(command):
         "grant_type": "refresh_token",
         "refresh_token": settings["SONOS_REFRESH_TOKEN"],
     })
-    reply = play_clip(tokens["access_token"], settings["SONOS_PLAYER_ID"], url, VOLUME, name)
+    return tokens["access_token"], settings["SONOS_PLAYER_ID"]
+
+
+def play_sound(command):
+    name, url = SOUNDS[command]
+    check_sound_file(url)
+    access_token, player_id = sign_in_from_secrets()
+    reply = play_clip(access_token, player_id, url, VOLUME, name)
     print(f"{name} sent to Sonos. Sonos's reply: {json.dumps(reply)}")
+
+
+def find_home(access_token, player_id):
+    """Find the household and the speaker group that the chosen speaker belongs to."""
+    for household in control(access_token, "/households").get("households", []):
+        groups = control(access_token, f"/households/{household['id']}/groups").get("groups", [])
+        for group in groups:
+            if player_id in group.get("playerIds", []):
+                return household["id"], group["id"]
+    sys.exit("Couldn't find your chosen speaker. Is it switched on and connected?")
+
+
+def get_favourites(access_token, household_id):
+    return control(access_token, f"/households/{household_id}/favorites").get("items", [])
+
+
+def list_favourites():
+    access_token, player_id = sign_in_from_secrets()
+    household_id, _ = find_home(access_token, player_id)
+    print("Your Sonos favourites:")
+    for favourite in get_favourites(access_token, household_id):
+        print(f"  {favourite['name']}")
+
+
+def play_favourite(name):
+    """Play the Sonos favourite with this name (or the first one whose name contains it)."""
+    access_token, player_id = sign_in_from_secrets()
+    household_id, group_id = find_home(access_token, player_id)
+    favourites = get_favourites(access_token, household_id)
+    wanted = name.strip().lower()
+    matches = ([f for f in favourites if f["name"].strip().lower() == wanted]
+               or [f for f in favourites if wanted in f["name"].lower()])
+    if not matches:
+        names = ", ".join(f["name"] for f in favourites) or "(none)"
+        sys.exit(f"No Sonos favourite called \"{name}\". Your favourites are: {names}")
+    favourite = matches[0]
+    control(access_token, f"/groups/{group_id}/favorites", {
+        "favoriteId": favourite["id"],
+        "playOnCompletion": True,
+        "action": "REPLACE",
+    })
+    print(f"Playing \"{favourite['name']}\" on Sonos.")
 
 
 def ask(prompt):
@@ -190,5 +240,9 @@ if __name__ == "__main__":
         print(sign_in_link(sys.argv[2]))
     elif command in SOUNDS:
         play_sound(command)
+    elif command == "favourites":
+        list_favourites()
+    elif command == "song" and len(sys.argv) > 2:
+        play_favourite(sys.argv[2])
     else:
         sys.exit(__doc__)

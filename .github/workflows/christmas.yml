@@ -1,0 +1,45 @@
+name: Christmas test
+
+# Try out the 12 Days of Christmas at any time of year, or list your Sonos favourites
+# so you know what names to put in vestaboard/christmas.txt. The real thing runs
+# automatically from the "Daily love message" workflow, from Christmas Day to January 5.
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "What to do"
+        type: choice
+        options: [send a day, list Sonos favourites]
+        default: send a day
+      day:
+        description: "Which day of Christmas to send"
+        type: choice
+        options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+        default: "1"
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Send a day of Christmas, or list favourites
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SONOS_CLIENT_ID: ${{ secrets.SONOS_CLIENT_ID }}
+          SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
+          SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
+          SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
+          WHAT: ${{ inputs.what }}
+          DAY: ${{ inputs.day }}
+        run: |
+          if [ "$WHAT" = "list Sonos favourites" ]; then
+            python3 ../sonos/sonos.py favourites
+          else
+            python3 christmas.py --day "$DAY"
+          fi

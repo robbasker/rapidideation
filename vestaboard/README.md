@@ -92,3 +92,27 @@ Keep each riddle to about 40 characters so it fits on the Note.
 
 **Send one now:** on GitHub, go to **Actions → Daily riddle → Run workflow**, and
 choose **riddle** or **answer**.
+
+## The 12 Days of Christmas
+
+From **Christmas Day (day 1) to January 5 (day 12)**, the 9am love message is replaced
+by the day's gift, with a Christmas song on the Sonos:
+
+```
+ 🟥🟩 DAY 3 🟩🟥
+ 3 FRENCH HENS
+```
+
+The song starts first, then the Note changes a few seconds later. The love messages
+come back on January 6.
+
+**Choosing the songs:**
+1. In the Sonos app, find each Christmas song on Amazon Music, tap **⋯** and choose
+   **Add to Sonos Favorites**. Save single songs, not playlists, or the music won't stop.
+2. On GitHub, run **Actions → Christmas test → Run workflow** with **list Sonos favourites**
+   to see their exact names in the log.
+3. Edit `christmas.txt`: after each day's `|`, type the favourite's name (or just part of it,
+   like `Jingle Bell Rock`).
+
+**Try a day any time:** **Actions → Christmas test → Run workflow**, choose **send a day**
+and the day number.
