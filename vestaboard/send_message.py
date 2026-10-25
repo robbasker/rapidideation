@@ -127,7 +127,7 @@ def send(board, api_key):
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=15) as response:
-        return response.status
+        return response.status, response.read().decode(errors="replace")
 
 
 def main():
@@ -154,7 +154,7 @@ def send_to_board(board):
         sys.exit("No API key found. Put your key in vestaboard/api_key.txt (see README.md).")
 
     try:
-        send(board, api_key)
+        status, reply = send(board, api_key)
     except urllib.error.HTTPError as error:
         if error.code in (401, 403):
             sys.exit("Vestaboard rejected the API key. Check that it's your Cloud API token.")
@@ -165,6 +165,7 @@ def send_to_board(board):
     except urllib.error.URLError as error:
         sys.exit(f"Couldn't reach Vestaboard: {error.reason}")
     print("Sent to your Vestaboard!")
+    print(f"Vestaboard's reply ({status}): {reply}")
 
 
 if __name__ == "__main__":
