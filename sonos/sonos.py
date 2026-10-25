@@ -2,7 +2,7 @@
 """
 Play sounds on your Sonos speaker through the Sonos cloud.
 
-    python3 sonos.py setup      one-time sign-in; tells you what to save on GitHub
+    python3 sonos.py setup KEY SECRET   one-time sign-in; tells you what to save on GitHub
     python3 sonos.py drumroll   play the drum roll
 
 Only uses Python's built-in libraries, so there is nothing to install.
@@ -95,10 +95,10 @@ def ask(prompt):
         print("That was blank, please try again.")
 
 
-def setup():
+def setup(client_id=None, client_secret=None):
     print("Sonos setup. You'll need the Key and Secret from your Sonos developer integration.\n")
-    client_id = ask("Paste the Key: ")
-    client_secret = ask("Paste the Secret: ")
+    client_id = client_id or ask("Paste the Key: ")
+    client_secret = client_secret or ask("Paste the Secret: ")
 
     sign_in = LOGIN_URL + "?" + urllib.parse.urlencode({
         "client_id": client_id,
@@ -152,7 +152,7 @@ def setup():
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "setup":
-        setup()
+        setup(*sys.argv[2:4])
     elif command == "drumroll":
         drumroll()
     else:

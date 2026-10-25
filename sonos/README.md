@@ -22,7 +22,7 @@ computer needs to be left on at home.
    ```
    apk add curl
    curl -O https://raw.githubusercontent.com/robbasker/rapidideation/main/sonos/sonos.py
-   python3 sonos.py setup
+   python3 sonos.py setup YOUR_KEY YOUR_SECRET
    ```
    Follow the steps on screen. At the end, a test drum roll plays and you get four values.
 
