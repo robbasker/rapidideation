@@ -28,7 +28,7 @@ REDIRECT_URI = "https://github.com/robbasker/rapidideation"
 SOUNDS_VERSION = "3761deb41576e67e51ca6ba2cf10b4d022ff0586"
 SOUNDS_URL = f"https://cdn.jsdelivr.net/gh/robbasker/rapidideation@{SOUNDS_VERSION}/sonos/"
 DRUM_ROLL_URL = SOUNDS_URL + "drum_roll.wav"
-VOLUME = 40  # 0 to 100
+VOLUME = 70  # 0 to 100
 
 # The sounds you can play, by command name: (description, file address)
 SOUNDS = {
