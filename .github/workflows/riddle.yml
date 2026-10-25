@@ -53,5 +53,7 @@ jobs:
             sleep 1
             python3 riddle.py --answer
           else
+            # Thinking jingle on the Sonos as the riddle goes up; if that fails, the riddle still goes out.
+            python3 ../sonos/sonos.py thinking || echo "No thinking jingle this time."
             python3 riddle.py
           fi

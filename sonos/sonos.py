@@ -4,7 +4,8 @@ Play sounds on your Sonos speaker through the Sonos cloud.
 
     python3 sonos.py link KEY                    print the Sonos sign-in link
     python3 sonos.py setup KEY SECRET 'ADDRESS'  finish signing in; tells you what to save on GitHub
-    python3 sonos.py drumroll   play the drum roll
+    python3 sonos.py drumroll                    play the drum roll
+    python3 sonos.py thinking                    play the thinking jingle
 
 Only uses Python's built-in libraries, so there is nothing to install.
 """
@@ -21,8 +22,15 @@ LOGIN_URL = "https://api.sonos.com/login/v3/oauth"
 TOKEN_URL = "https://api.sonos.com/login/v3/oauth/access"
 CONTROL_URL = "https://api.ws.sonos.com/control/api/v1"
 REDIRECT_URI = "https://github.com/robbasker/rapidideation"
-DRUM_ROLL_URL = "https://cdn.jsdelivr.net/gh/robbasker/rapidideation@main/sonos/drum_roll.wav"
-DRUM_ROLL_VOLUME = 40  # 0 to 100
+SOUNDS_URL = "https://cdn.jsdelivr.net/gh/robbasker/rapidideation@main/sonos/"
+DRUM_ROLL_URL = SOUNDS_URL + "drum_roll.wav"
+VOLUME = 40  # 0 to 100
+
+# The sounds you can play, by command name: (description, file address)
+SOUNDS = {
+    "drumroll": ("Drum roll", DRUM_ROLL_URL),
+    "thinking": ("Thinking jingle", SOUNDS_URL + "thinking_jingle.wav"),
+}
 
 
 def request(url, data=None, headers=None, method=None):
@@ -62,10 +70,10 @@ def control(access_token, path, body=None):
     return request(CONTROL_URL + path, data=data, headers=headers, method="POST" if data else "GET")
 
 
-def play_clip(access_token, player_id, url, volume):
+def play_clip(access_token, player_id, url, volume, name="Drum roll"):
     """Play a sound file on one speaker, over the top of anything already playing."""
     return control(access_token, f"/players/{player_id}/audioClip", {
-        "name": "Drum roll",
+        "name": name,
         "appId": "com.github.robbasker.vestaboard",
         "streamUrl": url,
         "volume": volume,
@@ -73,18 +81,19 @@ def play_clip(access_token, player_id, url, volume):
     })
 
 
-def drumroll():
+def play_sound(command):
+    name, url = SOUNDS[command]
     settings = {}
-    for name in ("SONOS_CLIENT_ID", "SONOS_CLIENT_SECRET", "SONOS_REFRESH_TOKEN", "SONOS_PLAYER_ID"):
-        settings[name] = (os.environ.get(name) or "").strip()
-        if not settings[name]:
-            sys.exit(f"{name} isn't set, so there's no drum roll. See sonos/README.md.")
+    for setting in ("SONOS_CLIENT_ID", "SONOS_CLIENT_SECRET", "SONOS_REFRESH_TOKEN", "SONOS_PLAYER_ID"):
+        settings[setting] = (os.environ.get(setting) or "").strip()
+        if not settings[setting]:
+            sys.exit(f"{setting} isn't set, so there's no sound. See sonos/README.md.")
     tokens = get_tokens(settings["SONOS_CLIENT_ID"], settings["SONOS_CLIENT_SECRET"], {
         "grant_type": "refresh_token",
         "refresh_token": settings["SONOS_REFRESH_TOKEN"],
     })
-    play_clip(tokens["access_token"], settings["SONOS_PLAYER_ID"], DRUM_ROLL_URL, DRUM_ROLL_VOLUME)
-    print("Drum roll playing!")
+    play_clip(tokens["access_token"], settings["SONOS_PLAYER_ID"], url, VOLUME, name)
+    print(f"{name} playing!")
 
 
 def ask(prompt):
@@ -141,7 +150,7 @@ def setup(client_id=None, client_secret=None, landed=None):
     if len(speakers) == 1:
         speaker = speakers[0]
         print(f"\nPlaying a test drum roll on {speaker['name']}...")
-        play_clip(access_token, speaker["id"], DRUM_ROLL_URL, DRUM_ROLL_VOLUME)
+        play_clip(access_token, speaker["id"], DRUM_ROLL_URL, VOLUME)
         player_id = speaker["id"]
     else:
         print("\nSpeakers that can play the drum roll, and the ID to save for each:\n")
@@ -162,7 +171,7 @@ if __name__ == "__main__":
         setup(*sys.argv[2:5])
     elif command == "link" and len(sys.argv) > 2:
         print(sign_in_link(sys.argv[2]))
-    elif command == "drumroll":
-        drumroll()
+    elif command in SOUNDS:
+        play_sound(command)
     else:
         sys.exit(__doc__)
