@@ -48,12 +48,13 @@ jobs:
             esac
           fi
           if [ "$PART" = "answer" ]; then
-            # Drum roll on the Sonos first; if that fails, the answer still goes out.
-            python3 ../sonos/sonos.py drumroll || echo "No drum roll this time."
-            sleep 1
+            # Drum roll on the Sonos first, then the answer lands on the cymbal crash (3 seconds in).
+            # If the sound fails, the answer still goes out straight away.
+            if python3 ../sonos/sonos.py drumroll; then sleep 3; else echo "No drum roll this time."; fi
             python3 riddle.py --answer
           else
-            # Thinking jingle on the Sonos as the riddle goes up; if that fails, the riddle still goes out.
-            python3 ../sonos/sonos.py thinking || echo "No thinking jingle this time."
+            # Thinking jingle on the Sonos first (about 7 seconds), then the riddle goes up.
+            # If the sound fails, the riddle still goes out straight away.
+            if python3 ../sonos/sonos.py thinking; then sleep 7; else echo "No thinking jingle this time."; fi
             python3 riddle.py
           fi
