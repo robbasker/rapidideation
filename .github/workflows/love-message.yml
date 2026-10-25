@@ -23,10 +23,6 @@ jobs:
         working-directory: vestaboard
         env:
           VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
-          SONOS_CLIENT_ID: ${{ secrets.SONOS_CLIENT_ID }}
-          SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
-          SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
-          SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
           SCHEDULE: ${{ github.event.schedule }}
         run: |
           if [ -n "$SCHEDULE" ]; then
@@ -34,9 +30,4 @@ jobs:
             if [ "$SCHEDULE" = "0 13 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
             if [ "$SCHEDULE" = "0 14 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
           fi
-          # From Christmas Day to January 5, the 12 Days of Christmas take the place of the love message.
-          if python3 christmas.py --in-season; then
-            python3 christmas.py
-          else
-            python3 love_message.py
-          fi
+          python3 love_message.py

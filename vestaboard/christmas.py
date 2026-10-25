@@ -2,8 +2,8 @@
 """
 The 12 Days of Christmas on the Vestaboard, with a Christmas song on the Sonos.
 
-From Christmas Day (day 1) to January 5 (day 12), this replaces the 9am love message.
-Each day's gift and song are in christmas.txt.
+It runs at 8am from December 14 (day 1) to Christmas Day (day 12), counting down to
+Christmas. Each day's gift and song are in christmas.txt.
 
     python3 christmas.py              send today's day (only during the 12 days)
     python3 christmas.py --day 3      send day 3, whatever the date
@@ -16,7 +16,7 @@ import argparse
 import os
 import sys
 import time
-from datetime import date, datetime
+from datetime import datetime
 
 from love_message import TIME_ZONE
 from send_message import build_board, preview, send_to_board
@@ -43,11 +43,9 @@ def load_days():
 
 
 def day_of_christmas(today):
-    """1 on Christmas Day up to 12 on January 5; None on any other date."""
-    if today.month == 12 and today.day >= 25:
-        return today.day - 24
-    if today.month == 1 and today.day <= 5:
-        return today.day + 7
+    """1 on December 14 up to 12 on Christmas Day; None on any other date."""
+    if today.month == 12 and 14 <= today.day <= 25:
+        return today.day - 13
     return None
 
 

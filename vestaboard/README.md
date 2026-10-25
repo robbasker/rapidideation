@@ -95,24 +95,23 @@ choose **riddle** or **answer**.
 
 ## The 12 Days of Christmas
 
-From **Christmas Day (day 1) to January 5 (day 12)**, the 9am love message is replaced
-by the day's gift, with a Christmas song on the Sonos:
+Every day at **8am US Eastern time from December 14 (day 1) to Christmas Day (day 12)**,
+a Christmas song starts on the Sonos and then the Note shows the day's gift:
 
 ```
  🟥🟩 DAY 3 🟩🟥
  3 FRENCH HENS
 ```
 
-The song starts first, then the Note changes a few seconds later. The love messages
-come back on January 6.
+The 9am love message carries on as normal. Outside those 12 days, nothing happens.
 
 **Choosing the songs:**
 1. In the Sonos app, find each Christmas song on Amazon Music, tap **⋯** and choose
    **Add to Sonos Favorites**. Save single songs, not playlists, or the music won't stop.
-2. On GitHub, run **Actions → Christmas test → Run workflow** with **list Sonos favourites**
-   to see their exact names in the log.
+2. On GitHub, run **Actions → 12 Days of Christmas → Run workflow** with
+   **list Sonos favourites** to see their exact names in the log.
 3. Edit `christmas.txt`: after each day's `|`, type the favourite's name (or just part of it,
    like `Jingle Bell Rock`).
 
-**Try a day any time:** **Actions → Christmas test → Run workflow**, choose **send a day**
-and the day number.
+**Try a day any time:** **Actions → 12 Days of Christmas → Run workflow**, choose
+**send a day** and the day number.

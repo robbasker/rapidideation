@@ -1,9 +1,14 @@
-name: Christmas test
+name: 12 Days of Christmas
 
-# Try out the 12 Days of Christmas at any time of year, or list your Sonos favourites
-# so you know what names to put in vestaboard/christmas.txt. The real thing runs
-# automatically from the "Daily love message" workflow, from Christmas Day to January 5.
 on:
+  schedule:
+    # GitHub schedules use UTC. 8am US Eastern is 12:00 UTC in summer time and 13:00 UTC
+    # in winter, so run at both and let the check below keep the right one. On any day
+    # outside December 14 to Christmas Day, it does nothing.
+    - cron: "0 12 * * *"
+    - cron: "0 13 * * *"
+  # Try it out at any time of year, or list your Sonos favourites so you know
+  # what names to put in vestaboard/christmas.txt.
   workflow_dispatch:
     inputs:
       what:
@@ -35,10 +40,20 @@ jobs:
           SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
           SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
           SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
+          SCHEDULE: ${{ github.event.schedule }}
           WHAT: ${{ inputs.what }}
           DAY: ${{ inputs.day }}
         run: |
-          if [ "$WHAT" = "list Sonos favourites" ]; then
+          if [ -n "$SCHEDULE" ]; then
+            eastern_offset=$(TZ=America/New_York date +%z)
+            if [ "$SCHEDULE" = "0 12 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
+            if [ "$SCHEDULE" = "0 13 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
+            if ! python3 christmas.py --in-season; then
+              echo "Not one of the 12 days of Christmas, so nothing to do."
+              exit 0
+            fi
+            python3 christmas.py
+          elif [ "$WHAT" = "list Sonos favourites" ]; then
             python3 ../sonos/sonos.py favourites
           else
             python3 christmas.py --day "$DAY"
