@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 from send_message import build_board, preview, send_to_board
 
 MESSAGES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "love_messages.txt")
-TIME_ZONE = ZoneInfo("Europe/London")
+TIME_ZONE = ZoneInfo("America/New_York")
 
 
 def load_messages():

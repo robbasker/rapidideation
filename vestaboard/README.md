@@ -59,7 +59,7 @@ python3 send_message.py "{red}{orange}{yellow} Welcome home {yellow}{orange}{red
 
 ## Daily love messages
 
-Every morning at **8am London time**, GitHub sends a line from a Robert Burns
+Every morning at **9am US Eastern time**, GitHub sends a line from a Robert Burns
 poem to the board. Your iPad doesn't need to be switched on. The messages are in
 `love_messages.txt`, one per line, and come out in a random order with no repeats
 until every message has been used.
@@ -68,7 +68,7 @@ until every message has been used.
 the pencil icon). Keep each one to a line; it's wrapped onto the board automatically.
 
 **Change the time:** in `.github/workflows/love-message.yml`, the two `cron` lines
-are in UTC. For 7am London time, change `0 7` → `0 6` and `0 8` → `0 7`, and make the
+are in UTC. For 8am Eastern time, change `0 13` → `0 12` and `0 14` → `0 13`, and make the
 same changes in the two `if` lines further down.
 
 **Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.
