@@ -76,3 +76,19 @@ same changes in the two `if` lines further down.
 **Note:** GitHub pauses scheduled jobs if nothing in the repository changes for 60
 days. It emails you first, and you can switch it back on from the Actions tab
 (or just edit a message).
+
+## Daily riddle
+
+Every day at **12pm US Eastern time** a riddle appears, and at **6pm** its answer.
+The riddles are in `riddles.txt`, one per line, with a `|` between the riddle and
+the answer, for example:
+
+```
+What has keys but can't open locks? | A piano
+```
+
+They come out in a random order with no repeats until every riddle has been used.
+Keep each riddle to about 40 characters so it fits on the Note.
+
+**Send one now:** on GitHub, go to **Actions → Daily riddle → Run workflow**, and
+choose **riddle** or **answer**.

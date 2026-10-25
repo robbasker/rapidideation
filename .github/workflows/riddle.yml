@@ -1,0 +1,50 @@
+name: Daily riddle
+
+on:
+  schedule:
+    # GitHub schedules use UTC. US Eastern time is 4 hours behind UTC in summer
+    # and 5 in winter, so each time has two entries and the check below keeps
+    # the right one: riddle at 12pm, answer at 6pm.
+    - cron: "0 16 * * *"
+    - cron: "0 17 * * *"
+    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
+  # Adds a "Run workflow" button on GitHub so you can send one straight away.
+  workflow_dispatch:
+    inputs:
+      part:
+        description: "Send the riddle or the answer?"
+        type: choice
+        options: [riddle, answer]
+        default: riddle
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send today's riddle or answer
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SCHEDULE: ${{ github.event.schedule }}
+          PART: ${{ inputs.part }}
+        run: |
+          if [ -n "$SCHEDULE" ]; then
+            eastern_offset=$(TZ=America/New_York date +%z)
+            case "$SCHEDULE|$eastern_offset" in
+              "0 16 * * *|-0400" | "0 17 * * *|-0500") PART=riddle ;;
+              "0 22 * * *|-0400" | "0 23 * * *|-0500") PART=answer ;;
+              *) exit 0 ;;
+            esac
+          fi
+          if [ "$PART" = "answer" ]; then
+            python3 riddle.py --answer
+          else
+            python3 riddle.py
+          fi
