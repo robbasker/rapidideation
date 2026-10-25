@@ -32,6 +32,10 @@ jobs:
         working-directory: vestaboard
         env:
           VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SONOS_CLIENT_ID: ${{ secrets.SONOS_CLIENT_ID }}
+          SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
+          SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
+          SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
           SCHEDULE: ${{ github.event.schedule }}
           PART: ${{ inputs.part }}
         run: |
@@ -44,6 +48,9 @@ jobs:
             esac
           fi
           if [ "$PART" = "answer" ]; then
+            # Drum roll on the Sonos first; if that fails, the answer still goes out.
+            python3 ../sonos/sonos.py drumroll || echo "No drum roll this time."
+            sleep 1
             python3 riddle.py --answer
           else
             python3 riddle.py
