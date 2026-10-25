@@ -159,7 +159,8 @@ def send_to_board(board):
         if error.code in (401, 403):
             sys.exit("Vestaboard rejected the API key. Check that it's your Cloud API token.")
         if error.code == 409:
-            sys.exit("That message is already on the board.")
+            print("That message is already on the board, so there was nothing to change.")
+            return
         sys.exit(f"Vestaboard returned an error: {error.code} {error.reason}")
     except urllib.error.URLError as error:
         sys.exit(f"Couldn't reach Vestaboard: {error.reason}")
