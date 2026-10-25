@@ -5,7 +5,7 @@ drum roll and cymbal crash first. It runs from GitHub through the Sonos cloud, s
 computer needs to be left on at home.
 
 - `drum_roll.wav` is the sound. It was made by `make_drum_roll.py`, with no recordings involved.
-- `sonos.py` talks to Sonos. `python3 sonos.py setup` is the one-time sign-in, and
+- `sonos.py` talks to Sonos. `python3 sonos.py link` and `python3 sonos.py setup` are the one-time sign-in, and
   `python3 sonos.py drumroll` plays the drum roll.
 
 ## One-time setup
@@ -18,13 +18,18 @@ computer needs to be left on at home.
    ```
    Keep the **Key** and **Secret** it shows you.
 
-2. **Sign in from iSH on your iPad:**
+2. **Sign in from iSH on your iPad.** Download the script, then print your sign-in link:
    ```
-   apk add curl
-   curl -O https://raw.githubusercontent.com/robbasker/rapidideation/main/sonos/sonos.py
-   python3 sonos.py setup YOUR_KEY YOUR_SECRET
+   python3 -c "import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/robbasker/rapidideation/main/sonos/sonos.py', 'sonos.py')"
+   python3 sonos.py link YOUR_KEY
    ```
-   Follow the steps on screen. At the end, a test drum roll plays and you get four values.
+   Open the link in Safari and sign in. You'll land on this GitHub repo; copy that page's
+   full address (it contains `code=`). Then finish, keeping the single quotes around the address:
+   ```
+   python3 sonos.py setup YOUR_KEY YOUR_SECRET 'PASTE_THE_ADDRESS_HERE'
+   ```
+   The code in the address only works once and expires quickly, so do this straight away.
+   A test drum roll plays (if you have one speaker) and you get four values.
 
 3. **Save the four values as GitHub secrets**, in the same place as `VESTABOARD_API_KEY`:
    `SONOS_CLIENT_ID`, `SONOS_CLIENT_SECRET`, `SONOS_REFRESH_TOKEN` and `SONOS_PLAYER_ID`.

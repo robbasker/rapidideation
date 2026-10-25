@@ -2,7 +2,8 @@
 """
 Play sounds on your Sonos speaker through the Sonos cloud.
 
-    python3 sonos.py setup KEY SECRET   one-time sign-in; tells you what to save on GitHub
+    python3 sonos.py link KEY                    print the Sonos sign-in link
+    python3 sonos.py setup KEY SECRET 'ADDRESS'  finish signing in; tells you what to save on GitHub
     python3 sonos.py drumroll   play the drum roll
 
 Only uses Python's built-in libraries, so there is nothing to install.
@@ -95,24 +96,31 @@ def ask(prompt):
         print("That was blank, please try again.")
 
 
-def setup(client_id=None, client_secret=None):
-    print("Sonos setup. You'll need the Key and Secret from your Sonos developer integration.\n")
-    client_id = client_id or ask("Paste the Key: ")
-    client_secret = client_secret or ask("Paste the Secret: ")
-
-    sign_in = LOGIN_URL + "?" + urllib.parse.urlencode({
+def sign_in_link(client_id):
+    return LOGIN_URL + "?" + urllib.parse.urlencode({
         "client_id": client_id,
         "response_type": "code",
         "state": "vestaboard",
         "scope": "playback-control-all",
         "redirect_uri": REDIRECT_URI,
     })
-    print("\n1. Copy this link into Safari and sign in with your Sonos account:\n")
-    print(sign_in)
-    print("\n2. When it's done, you'll land on a GitHub page. Copy that page's full")
-    print("   address from Safari's address bar (it contains 'code=').\n")
-    landed = ask("Paste the address here: ")
-    code = urllib.parse.parse_qs(urllib.parse.urlparse(landed).query).get("code", [None])[0]
+
+
+def setup(client_id=None, client_secret=None, landed=None):
+    print("Sonos setup. You'll need the Key and Secret from your Sonos developer integration.\n")
+    client_id = client_id or ask("Paste the Key: ")
+    client_secret = client_secret or ask("Paste the Secret: ")
+
+    if not landed:
+        print("\n1. Copy this link into Safari and sign in with your Sonos account:\n")
+        print(sign_in_link(client_id))
+        print("\n2. When it's done, you'll land on a GitHub page. Copy that page's full")
+        print("   address from Safari's address bar (it contains 'code=').\n")
+        landed = ask("Paste the address here: ")
+    if "code=" in landed:
+        code = urllib.parse.parse_qs(urllib.parse.urlparse(landed).query).get("code", [None])[0]
+    else:
+        code = landed.strip()
     if not code:
         sys.exit("That address doesn't contain a code. Please try the setup again.")
 
@@ -130,29 +138,30 @@ def setup(client_id=None, client_secret=None):
     if not speakers:
         sys.exit("None of your Sonos speakers can play sound clips, sorry.")
 
-    print("\nSpeakers that can play the drum roll:")
-    for number, speaker in enumerate(speakers, 1):
-        print(f"  {number}. {speaker['name']}")
-    choice = ask("Type the number of the speaker to use: ")
-    try:
-        speaker = speakers[int(choice) - 1]
-    except (ValueError, IndexError):
-        sys.exit("That isn't one of the numbers listed. Please try the setup again.")
-
-    print(f"\nPlaying a test drum roll on {speaker['name']}...")
-    play_clip(access_token, speaker["id"], DRUM_ROLL_URL, DRUM_ROLL_VOLUME)
+    if len(speakers) == 1:
+        speaker = speakers[0]
+        print(f"\nPlaying a test drum roll on {speaker['name']}...")
+        play_clip(access_token, speaker["id"], DRUM_ROLL_URL, DRUM_ROLL_VOLUME)
+        player_id = speaker["id"]
+    else:
+        print("\nSpeakers that can play the drum roll, and the ID to save for each:\n")
+        for speaker in speakers:
+            print(f"  {speaker['name']}:  {speaker['id']}")
+        player_id = "(the ID of the speaker you want, from the list above)"
 
     print("\nAll done! Add these four secrets on GitHub (same place as VESTABOARD_API_KEY):\n")
     print(f"  SONOS_CLIENT_ID       {client_id}")
     print(f"  SONOS_CLIENT_SECRET   {client_secret}")
     print(f"  SONOS_REFRESH_TOKEN   {tokens['refresh_token']}")
-    print(f"  SONOS_PLAYER_ID       {speaker['id']}")
+    print(f"  SONOS_PLAYER_ID       {player_id}")
 
 
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "setup":
-        setup(*sys.argv[2:4])
+        setup(*sys.argv[2:5])
+    elif command == "link" and len(sys.argv) > 2:
+        print(sign_in_link(sys.argv[2]))
     elif command == "drumroll":
         drumroll()
     else:
