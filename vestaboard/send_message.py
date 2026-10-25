@@ -18,7 +18,7 @@ import sys
 import urllib.error
 import urllib.request
 
-API_URL = "https://rw.vestaboard.com/"
+API_URL = "https://cloud.vestaboard.com/"
 ROWS = 6
 COLS = 22
 
@@ -119,10 +119,10 @@ def preview(board):
 def send(board, api_key):
     request = urllib.request.Request(
         API_URL,
-        data=json.dumps(board).encode(),
+        data=json.dumps({"characters": board}).encode(),
         headers={
             "Content-Type": "application/json",
-            "X-Vestaboard-Read-Write-Key": api_key,
+            "X-Vestaboard-Token": api_key,
         },
         method="POST",
     )
@@ -154,7 +154,7 @@ def main():
         send(board, api_key)
     except urllib.error.HTTPError as error:
         if error.code in (401, 403):
-            sys.exit("Vestaboard rejected the API key. Check that it's the Read/Write key.")
+            sys.exit("Vestaboard rejected the API key. Check that it's your Cloud API token.")
         if error.code == 409:
             sys.exit("That message is already on the board.")
         sys.exit(f"Vestaboard returned an error: {error.code} {error.reason}")

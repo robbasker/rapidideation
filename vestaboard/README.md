@@ -12,11 +12,12 @@ Python's built-in tools, so there is nothing extra to install.
    If you see a version number like `Python 3.12.1`, you're set. If not, install it from
    [python.org](https://www.python.org/downloads/).
 
-2. **Get your Read/Write API key.** In the Vestaboard app, go to **Settings → Developer**,
-   turn on the **Read/Write API**, and copy the key.
+2. **Get your Cloud API token.** In the Vestaboard app, go to **Settings → Developer**,
+   turn on the **Cloud API**, and copy the token. (Vestaboard used to call this the
+   "Read/Write API".)
 
 3. **Save the key.** Create a file called `api_key.txt` in this `vestaboard` folder and
-   paste the key into it (just the key, nothing else). This file is listed in
+   paste the token into it (just the token, nothing else). This file is listed in
    `.gitignore`, so it won't be uploaded to GitHub.
 
 ## 2. Sending a message
