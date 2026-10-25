@@ -86,10 +86,19 @@ def drumroll():
     print("Drum roll playing!")
 
 
+def ask(prompt):
+    """Keep asking until something is typed in."""
+    while True:
+        answer = input(prompt).strip()
+        if answer:
+            return answer
+        print("That was blank, please try again.")
+
+
 def setup():
     print("Sonos setup. You'll need the Key and Secret from your Sonos developer integration.\n")
-    client_id = input("Paste the Key: ").strip()
-    client_secret = input("Paste the Secret: ").strip()
+    client_id = ask("Paste the Key: ")
+    client_secret = ask("Paste the Secret: ")
 
     sign_in = LOGIN_URL + "?" + urllib.parse.urlencode({
         "client_id": client_id,
@@ -102,7 +111,7 @@ def setup():
     print(sign_in)
     print("\n2. When it's done, you'll land on a GitHub page. Copy that page's full")
     print("   address from Safari's address bar (it contains 'code=').\n")
-    landed = input("Paste the address here: ").strip()
+    landed = ask("Paste the address here: ")
     code = urllib.parse.parse_qs(urllib.parse.urlparse(landed).query).get("code", [None])[0]
     if not code:
         sys.exit("That address doesn't contain a code. Please try the setup again.")
@@ -124,7 +133,7 @@ def setup():
     print("\nSpeakers that can play the drum roll:")
     for number, speaker in enumerate(speakers, 1):
         print(f"  {number}. {speaker['name']}")
-    choice = input("Type the number of the speaker to use: ").strip()
+    choice = ask("Type the number of the speaker to use: ")
     try:
         speaker = speakers[int(choice) - 1]
     except (ValueError, IndexError):
