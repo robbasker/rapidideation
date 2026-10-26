@@ -68,8 +68,12 @@ until every message has been used.
 the pencil icon). Keep each one to a line; it's wrapped onto the board automatically.
 
 **Change the time:** in `.github/workflows/love-message.yml`, the two `cron` lines
-are in UTC. For 8am Eastern time, change `0 13` → `0 12` and `0 14` → `0 13`, and make the
+are in UTC. For an hour earlier, change `47 12` → `47 11` and `47 13` → `47 12`, and make the
 same changes in the two `if` lines further down.
+
+**Why 13 minutes early:** each job is set for 13 minutes before the hour (8:47am for the
+love message, 11:47am for the riddle, 5:47pm for the answer, 7:47am for Christmas),
+because GitHub is busiest on the hour and often starts scheduled jobs late.
 
 **Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.
 

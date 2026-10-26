@@ -2,10 +2,11 @@ name: Daily love message
 
 on:
   schedule:
-    # GitHub schedules use UTC, so run at both 13:00 and 14:00 UTC and let the
-    # check below keep whichever one is 9am US Eastern time (it changes with daylight saving).
-    - cron: "0 13 * * *"
-    - cron: "0 14 * * *"
+    # GitHub schedules use UTC, so run at both 12:47 and 13:47 UTC and let the
+    # check below keep whichever one is 8:47am US Eastern time (it changes with daylight saving).
+    # It's set 13 minutes early because GitHub is busiest on the hour and often starts late.
+    - cron: "47 12 * * *"
+    - cron: "47 13 * * *"
   # Adds a "Run workflow" button on GitHub so you can send one straight away.
   workflow_dispatch:
 
@@ -27,7 +28,7 @@ jobs:
         run: |
           if [ -n "$SCHEDULE" ]; then
             eastern_offset=$(TZ=America/New_York date +%z)
-            if [ "$SCHEDULE" = "0 13 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
-            if [ "$SCHEDULE" = "0 14 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
+            if [ "$SCHEDULE" = "47 12 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
+            if [ "$SCHEDULE" = "47 13 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
           fi
           python3 love_message.py

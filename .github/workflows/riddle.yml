@@ -4,11 +4,12 @@ on:
   schedule:
     # GitHub schedules use UTC. US Eastern time is 4 hours behind UTC in summer
     # and 5 in winter, so each time has two entries and the check below keeps
-    # the right one: riddle at 12pm, answer at 6pm.
-    - cron: "0 16 * * *"
-    - cron: "0 17 * * *"
-    - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
+    # the right one: riddle at 11:47am, answer at 5:47pm. They're set 13 minutes early
+    # because GitHub is busiest on the hour and often starts late.
+    - cron: "47 15 * * *"
+    - cron: "47 16 * * *"
+    - cron: "47 21 * * *"
+    - cron: "47 22 * * *"
   # Adds a "Run workflow" button on GitHub so you can send one straight away.
   workflow_dispatch:
     inputs:
@@ -42,8 +43,8 @@ jobs:
           if [ -n "$SCHEDULE" ]; then
             eastern_offset=$(TZ=America/New_York date +%z)
             case "$SCHEDULE|$eastern_offset" in
-              "0 16 * * *|-0400" | "0 17 * * *|-0500") PART=riddle ;;
-              "0 22 * * *|-0400" | "0 23 * * *|-0500") PART=answer ;;
+              "47 15 * * *|-0400" | "47 16 * * *|-0500") PART=riddle ;;
+              "47 21 * * *|-0400" | "47 22 * * *|-0500") PART=answer ;;
               *) exit 0 ;;
             esac
           fi
