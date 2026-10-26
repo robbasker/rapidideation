@@ -37,6 +37,10 @@ computer needs to be left on at home.
 
 **Test it:** go to **Actions → Daily riddle → Run workflow** and choose **answer**.
 
+**Play a sound any time:** go to **Actions → Play a sound → Run workflow** and pick
+**laugh** (a Halloween "mwa-ha-ha-ha-haaa", made by `make_evil_laugh.py`), **drumroll**
+or **thinking**.
+
 **Change the volume:** edit `VOLUME` near the top of `sonos.py` (0 to 100).
 
 If a sound ever fails, the riddle or answer still goes up on the Note.
