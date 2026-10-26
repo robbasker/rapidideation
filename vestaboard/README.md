@@ -49,6 +49,12 @@ python3 send_message.py "Happy Birthday\nSam!"
 python3 send_message.py "{red}{orange}{yellow} Welcome home {yellow}{orange}{red}"
 ```
 
+## Sending a message from your phone or iPad
+
+No setup needed. On GitHub, go to **Actions → Send a message → Run workflow**, type
+your message (the same `\n` and `{red}` tricks work) and tap **Run workflow**. Tick
+**Just preview it** to only see the board in the run's log without sending.
+
 ## Good to know
 
 - This is set up for a **Vestaboard Note: 3 lines × 15 characters** (45 in total). Messages are word-wrapped and centred

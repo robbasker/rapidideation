@@ -1,0 +1,40 @@
+name: Send a message
+
+# Adds a "Run workflow" button on GitHub where you type a message and it goes
+# straight to the Vestaboard. Works from a phone or iPad: Actions → Send a message.
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Your message (use \n for a new line, {red} etc. for colour tiles)'
+        type: string
+        required: true
+      preview_only:
+        description: "Just preview it in the log, don't send"
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Send the message
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          # Passed in as a variable, not pasted into the script, so any
+          # quotes or symbols in the message can't break the command.
+          MESSAGE: ${{ inputs.message }}
+          PREVIEW_ONLY: ${{ inputs.preview_only }}
+        run: |
+          if [ "$PREVIEW_ONLY" = "true" ]; then
+            python3 send_message.py "$MESSAGE" --preview
+          else
+            python3 send_message.py "$MESSAGE"
+          fi
