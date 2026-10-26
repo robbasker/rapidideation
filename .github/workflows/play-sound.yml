@@ -1,0 +1,32 @@
+name: Play a sound
+
+# Adds a "Run workflow" button on GitHub that plays one of the sounds on the Sonos.
+# Works from a phone or iPad: Actions → Play a sound.
+on:
+  workflow_dispatch:
+    inputs:
+      sound:
+        description: "Which sound?"
+        type: choice
+        options: [laugh, drumroll, thinking]
+        default: laugh
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Play the sound
+        working-directory: sonos
+        env:
+          SONOS_CLIENT_ID: ${{ secrets.SONOS_CLIENT_ID }}
+          SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
+          SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
+          SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
+          SOUND: ${{ inputs.sound }}
+        run: python3 sonos.py "$SOUND"

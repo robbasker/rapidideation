@@ -6,6 +6,7 @@ Play sounds on your Sonos speaker through the Sonos cloud.
     python3 sonos.py setup KEY SECRET 'ADDRESS'  finish signing in; tells you what to save on GitHub
     python3 sonos.py drumroll                    play the drum roll
     python3 sonos.py thinking                    play the thinking jingle
+    python3 sonos.py laugh                       play the Halloween evil laugh
     python3 sonos.py favourites                  list your Sonos favourites
     python3 sonos.py song "NAME"                 play the Sonos favourite with that name
 
@@ -27,7 +28,7 @@ REDIRECT_URI = "https://github.com/robbasker/rapidideation"
 # The sound files are served by jsDelivr from one fixed version of this repository.
 # (Using "@main" instead can serve an out-of-date copy for up to 12 hours.)
 # If you change or add a sound, update this to the newest commit ID that includes it.
-SOUNDS_VERSION = "3761deb41576e67e51ca6ba2cf10b4d022ff0586"
+SOUNDS_VERSION = "264d418f853275fb82a31a76ff90e6435b75a593"
 SOUNDS_URL = f"https://cdn.jsdelivr.net/gh/robbasker/rapidideation@{SOUNDS_VERSION}/sonos/"
 DRUM_ROLL_URL = SOUNDS_URL + "drum_roll.wav"
 VOLUME = 70  # 0 to 100
@@ -36,6 +37,7 @@ VOLUME = 70  # 0 to 100
 SOUNDS = {
     "drumroll": ("Drum roll", DRUM_ROLL_URL),
     "thinking": ("Thinking jingle", SOUNDS_URL + "thinking_jingle.wav"),
+    "laugh": ("Evil laugh", SOUNDS_URL + "evil_laugh.wav"),
 }
 
 
