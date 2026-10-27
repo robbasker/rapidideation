@@ -1,0 +1,47 @@
+name: Halloween countdown
+
+on:
+  schedule:
+    # GitHub schedules use UTC. 7:47am US Eastern is 11:47 UTC in summer time and 12:47 UTC
+    # in winter, so run at both and let the check below keep the right one. It's set
+    # 13 minutes before 8am because GitHub is busiest on the hour and often starts late.
+    # Outside October 1 to Halloween, it does nothing.
+    - cron: "47 11 * * *"
+    - cron: "47 12 * * *"
+  # Try it out at any time of year.
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days to go (0 is Halloween itself)"
+        type: number
+        default: 7
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Send the Halloween countdown
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SCHEDULE: ${{ github.event.schedule }}
+          DAYS: ${{ inputs.days }}
+        run: |
+          if [ -n "$SCHEDULE" ]; then
+            eastern_offset=$(TZ=America/New_York date +%z)
+            if [ "$SCHEDULE" = "47 11 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
+            if [ "$SCHEDULE" = "47 12 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
+            if ! python3 halloween.py --in-season; then
+              echo "Not Halloween countdown season, so nothing to do."
+              exit 0
+            fi
+            python3 halloween.py
+          else
+            python3 halloween.py --days "$DAYS"
+          fi

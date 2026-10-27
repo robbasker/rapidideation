@@ -55,6 +55,45 @@ No setup needed. On GitHub, go to **Actions → Send a message → Run workflow*
 your message (the same `\n` and `{red}` tricks work) and tap **Run workflow**. Tick
 **Just preview it** to only see the board in the run's log without sending.
 
+## Halloween countdown
+
+Every day at **8am US Eastern time from October 1 to Halloween**, the Note counts down:
+
+```
+ 🟧 4 DAYS 🟧
+    UNTIL
+🟧 HALLOWEEN 🟧
+```
+
+On Halloween itself it says **Happy Halloween!** and stays up until the riddle at
+noon. The rest of the year, nothing happens.
+
+**Try a day any time:** **Actions → Halloween countdown → Run workflow**, and type how
+many days to go (0 is Halloween).
+
+## Trying ideas on a virtual board
+
+`virtual_board.py` runs a pretend Note in your web browser, so you can see how
+something looks (flapping tiles and all) before it goes to the real board.
+
+1. Start it, and leave it running:
+   ```
+   python3 virtual_board.py
+   ```
+2. Open **http://localhost:7000**. (In a Codespace, open the **Ports** tab and click
+   the globe next to port 7000.)
+3. Type a message into the box under the board, or put `VESTABOARD_VIRTUAL=1` in front of
+   any script to send it to the virtual board instead of the real one:
+   ```
+   VESTABOARD_VIRTUAL=1 python3 send_message.py "{green} Welcome home {green}"
+   VESTABOARD_VIRTUAL=1 python3 riddle.py --answer
+   VESTABOARD_VIRTUAL=1 python3 christmas.py --day 3
+   ```
+
+The virtual board accepts exactly what the real one does, so anything that works
+there will work on your Note. It doesn't need an API key. (`christmas.py` still
+plays its song on the real Sonos.)
+
 ## Good to know
 
 - This is set up for a **Vestaboard Note: 3 lines × 15 characters** (45 in total). Messages are word-wrapped and centred
@@ -65,7 +104,11 @@ your message (the same `\n` and `{red}` tricks work) and tap **Run workflow**. T
 
 ## Daily love messages
 
-Every morning at **9am US Eastern time**, GitHub sends a line from a Robert Burns
+**Switched off for now** (so the Halloween countdown stays up all morning). You can
+still send one with the button below. To switch it back on, follow the note at the
+top of `.github/workflows/love-message.yml`.
+
+When it's on, every morning at **9am US Eastern time**, GitHub sends a line from a Robert Burns
 poem to the board. Your iPad doesn't need to be switched on. The messages are in
 `love_messages.txt`, one per line, and come out in a random order with no repeats
 until every message has been used.
@@ -78,7 +121,8 @@ are in UTC. For an hour earlier, change `47 12` → `47 11` and `47 13` → `47 
 same changes in the two `if` lines further down.
 
 **Why 13 minutes early:** each job is set for 13 minutes before the hour (8:47am for the
-love message, 11:47am for the riddle, 5:47pm for the answer, 7:47am for Christmas),
+love message, 11:47am for the riddle, 5:47pm for the answer, 7:47am for Christmas and
+the Halloween countdown),
 because GitHub is busiest on the hour and often starts scheduled jobs late.
 
 **Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.
@@ -113,7 +157,7 @@ a Christmas song starts on the Sonos and then the Note shows the day's gift:
  3 FRENCH HENS
 ```
 
-The 9am love message carries on as normal. Outside those 12 days, nothing happens.
+Outside those 12 days, nothing happens.
 
 **Choosing the songs:**
 1. In the Sonos app, find each Christmas song on Amazon Music, tap **⋯** and choose

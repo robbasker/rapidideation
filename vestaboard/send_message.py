@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 API_URL = "https://cloud.vestaboard.com/"
+VIRTUAL_URL = "http://localhost:7000/"  # see virtual_board.py
 ROWS = 3
 COLS = 15
 
@@ -116,9 +117,9 @@ def preview(board):
     print("└" + "─" * (COLS * 2) + "┘")
 
 
-def send(board, api_key):
+def send(board, api_key, url=API_URL):
     request = urllib.request.Request(
-        API_URL,
+        url,
         data=json.dumps({"characters": board}).encode(),
         headers={
             "Content-Type": "application/json",
@@ -149,6 +150,10 @@ def main():
 
 def send_to_board(board):
     """Send the board using the saved API key, explaining any problem in plain English."""
+    if os.environ.get("VESTABOARD_VIRTUAL"):
+        send_to_virtual_board(board)
+        return
+
     api_key = load_api_key()
     if not api_key:
         sys.exit("No API key found. Put your key in vestaboard/api_key.txt (see README.md).")
@@ -166,6 +171,20 @@ def send_to_board(board):
         sys.exit(f"Couldn't reach Vestaboard: {error.reason}")
     print("Sent to your Vestaboard!")
     print(f"Vestaboard's reply ({status}): {reply}")
+
+
+def send_to_virtual_board(board):
+    """Send the board to virtual_board.py instead of the real Vestaboard."""
+    try:
+        send(board, "virtual", VIRTUAL_URL)
+    except urllib.error.HTTPError as error:
+        if error.code == 409:
+            print("That message is already on the virtual board, so there was nothing to change.")
+            return
+        sys.exit(f"The virtual board returned an error: {error.code} {error.reason}")
+    except urllib.error.URLError:
+        sys.exit("Couldn't reach the virtual board. Start it with: python3 virtual_board.py")
+    print(f"Sent to the virtual board at {VIRTUAL_URL}")
 
 
 if __name__ == "__main__":

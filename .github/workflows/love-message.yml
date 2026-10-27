@@ -1,12 +1,12 @@
 name: Daily love message
 
 on:
-  schedule:
-    # GitHub schedules use UTC, so run at both 12:47 and 13:47 UTC and let the
-    # check below keep whichever one is 8:47am US Eastern time (it changes with daylight saving).
-    # It's set 13 minutes early because GitHub is busiest on the hour and often starts late.
-    - cron: "47 12 * * *"
-    - cron: "47 13 * * *"
+  # The daily schedule is switched off for now. To switch it back on, put these lines
+  # back under "on:" (8:47am US Eastern, 13 minutes early because GitHub is busiest on
+  # the hour and often starts late):
+  #   schedule:
+  #     - cron: "47 12 * * *"
+  #     - cron: "47 13 * * *"
   # Adds a "Run workflow" button on GitHub so you can send one straight away.
   workflow_dispatch:
 
