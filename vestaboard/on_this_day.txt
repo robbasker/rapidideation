@@ -1,0 +1,64 @@
+# One per line: the date (month-day), a |, the year it happened, a |, and a short headline.
+# The headline has to fit on two lines of the board, so keep it to about 28 characters.
+# Dates with no line here are skipped. These come from Wikipedia's "On this day".
+11-01 | 1959 | Goalie wears first face mask
+11-02 | 2016 | Cubs win the World Series
+11-03 | 1954 | Godzilla hits the big screen
+11-04 | 1922 | Tutankhamun's tomb found
+11-05 | 2007 | Google unveils Android
+11-06 | 1856 | George Eliot's first story
+11-07 | 1996 | Mars Global Surveyor launch
+11-08 | 1971 | Led Zeppelin IV released
+11-09 | 1989 | The Berlin Wall opens
+11-10 | 1969 | Sesame Street premieres
+11-11 | 1918 | WWI armistice signed
+11-12 | 2014 | Probe lands on a comet
+11-13 | 1927 | Holland Tunnel opens
+11-14 | 1969 | Apollo 12 heads to the Moon
+11-15 | 1859 | Athens revives the Olympics
+11-16 | 1959 | The Sound of Music opens
+11-17 | 1989 | The Little Mermaid opens
+11-18 | 2011 | Minecraft 1.0 released
+11-19 | 1620 | Mayflower sights Cape Cod
+11-20 | 1985 | Windows 1.0 released
+11-21 | 1877 | Edison unveils the phonograph
+11-22 | 1995 | Toy Story hits cinemas
+11-23 | 1963 | Doctor Who first airs
+11-24 | 1925 | Eugene O'Neill Theatre opens
+11-25 | 1885 | Banff National Park founded
+11-26 | 2011 | Curiosity rover heads to Mars
+11-27 | 2009 | Lady Gaga's Monster Ball
+11-28 | 1925 | Grand Ole Opry first airs
+11-29 | 1982 | Michael Jackson drops Thriller
+11-30 | 1934 | Flying Scotsman hits 100 mph
+12-01 | 1966 | Gavle's first Yule goat
+12-02 | 1927 | Ford unveils the new Model A
+12-03 | 1994 | Sony launches the PlayStation
+12-04 | 1909 | First Grey Cup game
+12-05 | 1958 | Britain's first motorway opens
+12-06 | 1956 | Olympic gold at age 14
+12-07 | 1995 | Galileo arrives at Jupiter
+12-08 | 2013 | Metallica plays Antarctica
+12-09 | 1968 | The computer mouse debuts
+12-10 | 1911 | First flight across the USA
+12-11 | 1972 | Apollo 17 lands on the Moon
+12-12 | 2021 | Verstappen wins F1 title
+12-13 | 2013 | Beyonce drops a surprise album
+12-14 | 1948 | First video game patent
+12-15 | 1939 | Gone with the Wind premieres
+12-16 | 1901 | Peter Rabbit is first published
+12-17 | 1903 | Wright brothers first flight
+12-18 | 1966 | Saturn moon Epimetheus seen
+12-19 | 1843 | A Christmas Carol published
+12-20 | 1940 | Captain America debuts
+12-21 | 1988 | Heaviest plane takes off
+12-22 | 1937 | Lincoln Tunnel opens
+12-23 | 1815 | Jane Austen's Emma published
+12-24 | 1955 | NORAD starts tracking Santa
+12-25 | 1990 | The first web browser
+12-26 | 1898 | The Curies discover radium
+12-27 | 1831 | Darwin's Beagle voyage begins
+12-28 | 1967 | First woman joins the NYSE
+12-29 | 1845 | Texas joins the Union
+12-30 | 1902 | Scott reaches farthest south
+12-31 | 2004 | World's tallest building opens
