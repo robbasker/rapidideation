@@ -1,0 +1,6 @@
+# Things to count down to, one per line: the date, then a | and the name.
+# Write 12-25 for something that happens every year, or 2027-03-14 for a one-off.
+# The board shows whichever one comes up next.
+12-25 | Christmas
+01-01 | New Year
+10-31 | Halloween

@@ -125,3 +125,32 @@ The 9am love message carries on as normal. Outside those 12 days, nothing happen
 
 **Try a day any time:** **Actions → 12 Days of Christmas → Run workflow**, choose
 **send a day** and the day number.
+
+## Countdown
+
+`countdown.py` shows how many days are left until the next event in `countdowns.txt`:
+
+```
+ 4 DAYS UNTIL
+  HALLOWEEN
+```
+
+The day before it says **TOMORROW**, and on the day **TODAY IS**. Each line of
+`countdowns.txt` is a date, a `|` and a name. Write `12-25` for something every year,
+or `2027-03-14` for a one-off (it's skipped once it has passed).
+
+```
+python3 countdown.py --preview                    see today's countdown
+python3 countdown.py --preview --date 2026-12-24  pretend it's Christmas Eve
+python3 countdown.py --check                      check every event fits
+python3 countdown.py                              send it to the board
+```
+
+It isn't on a schedule yet, so it only goes to the board when you run it.
+
+**Ideas to try (all work offline with `--preview`):**
+1. Add your own events to `countdowns.txt`: birthdays, an anniversary, your next trip.
+2. Give each event its own colour tile, e.g. `12-25 | Christmas | green`.
+3. Show "1 WEEK TO GO" when there are exactly 7 days left.
+4. Play a sound on the Sonos on the day itself (see how `christmas.py` does it).
+5. Add a daily GitHub schedule for it (copy `.github/workflows/love-message.yml`).
