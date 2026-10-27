@@ -12,8 +12,7 @@ import argparse
 import os
 import sys
 
-from love_message import todays_message
-from send_message import build_board, preview, send_to_board
+from send_message import build_board, preview, send_to_board, todays_message
 
 RIDDLES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "riddles.txt")
 

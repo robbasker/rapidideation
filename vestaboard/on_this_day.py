@@ -14,8 +14,7 @@ import os
 import sys
 from datetime import datetime
 
-from love_message import TIME_ZONE
-from send_message import build_board, preview, send_to_board
+from send_message import TIME_ZONE, build_board, preview, send_to_board
 
 EVENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "on_this_day.txt")
 
