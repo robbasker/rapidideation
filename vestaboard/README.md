@@ -71,6 +71,31 @@ noon. The rest of the year, nothing happens.
 **Try a day any time:** **Actions → Halloween countdown → Run workflow**, and type how
 many days to go (0 is Halloween).
 
+## On this day in history
+
+Every day at **9am US Eastern time**, the Note shows something that happened on
+that date, from Wikipedia's "On this day":
+
+```
+   🟪 1969 🟪
+ SESAME STREET
+   PREMIERES
+```
+
+The headlines are in `on_this_day.txt`, one per line, with the date, the year and
+a short headline:
+
+```
+11-10 | 1969 | Sesame Street premieres
+```
+
+Keep each headline to about 28 characters so it fits on two lines. Dates with no
+line are skipped, so nothing happens after the last date in the file (December 31
+for now).
+
+**Try a day any time:** **Actions → On this day → Run workflow**, and type a date
+like `12-24`.
+
 ## Trying ideas on a virtual board
 
 `virtual_board.py` runs a pretend Note in your web browser, so you can see how
@@ -122,7 +147,7 @@ same changes in the two `if` lines further down.
 
 **Why 13 minutes early:** each job is set for 13 minutes before the hour (8:47am for the
 love message, 11:47am for the riddle, 5:47pm for the answer, 7:47am for Christmas and
-the Halloween countdown),
+the Halloween countdown, 8:47am for On this day),
 because GitHub is busiest on the hour and often starts scheduled jobs late.
 
 **Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.

@@ -1,0 +1,49 @@
+name: On this day
+
+on:
+  schedule:
+    # GitHub schedules use UTC, so run at both 12:47 and 13:47 UTC and let the
+    # check below keep whichever one is 8:47am US Eastern time (it changes with daylight saving).
+    # It's set 13 minutes early because GitHub is busiest on the hour and often starts late.
+    # On any date with nothing in vestaboard/on_this_day.txt, it does nothing.
+    - cron: "47 12 * * *"
+    - cron: "47 13 * * *"
+  # Try any date at any time.
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to send, as month-day like 12-24 (leave empty for today)"
+        type: string
+        default: ""
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Send today in history
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SCHEDULE: ${{ github.event.schedule }}
+          DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "$SCHEDULE" ]; then
+            eastern_offset=$(TZ=America/New_York date +%z)
+            if [ "$SCHEDULE" = "47 12 * * *" ] && [ "$eastern_offset" != "-0400" ]; then exit 0; fi
+            if [ "$SCHEDULE" = "47 13 * * *" ] && [ "$eastern_offset" != "-0500" ]; then exit 0; fi
+            if ! python3 on_this_day.py --has-today; then
+              echo "Nothing in on_this_day.txt for today, so nothing to do."
+              exit 0
+            fi
+            python3 on_this_day.py
+          elif [ -n "$DATE" ]; then
+            python3 on_this_day.py --date "$DATE"
+          else
+            python3 on_this_day.py
+          fi
