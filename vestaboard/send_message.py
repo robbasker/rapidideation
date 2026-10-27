@@ -13,13 +13,17 @@ Only uses Python's built-in libraries, so there is nothing to install.
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 API_URL = "https://cloud.vestaboard.com/"
 VIRTUAL_URL = "http://localhost:7000/"  # see virtual_board.py
+TIME_ZONE = ZoneInfo("America/New_York")  # what "today" means for the daily scripts
 ROWS = 3
 COLS = 15
 
@@ -57,6 +61,18 @@ def load_api_key():
         with open(key_file) as f:
             return f.read().strip()
     return None
+
+
+def todays_message(messages):
+    """Shuffle the list once per round, then take the message for today's place in that round.
+
+    So the messages come out in a random order, but none repeats until every one has been used.
+    """
+    day = datetime.now(TIME_ZONE).date().toordinal()
+    round_number, place = divmod(day, len(messages))
+    shuffled = list(messages)
+    random.Random(round_number).shuffle(shuffled)
+    return shuffled[place]
 
 
 def to_tiles(word):

@@ -127,34 +127,20 @@ plays its song on the real Sonos.)
 - Vestaboard limits how often you can post (roughly once every 15 seconds), and
   sending the exact same message twice in a row is refused.
 
-## Daily love messages
+## Schedules
 
-**Switched off for now** (so the Halloween countdown stays up all morning). You can
-still send one with the button below. To switch it back on, follow the note at the
-top of `.github/workflows/love-message.yml`.
+**Why 13 minutes early:** each job is set for 13 minutes before the hour (7:47am for
+Christmas and the Halloween countdown, 8:47am for On this day, 11:47am for the riddle,
+5:47pm for the answer), because GitHub is busiest on the hour and often starts
+scheduled jobs late.
 
-When it's on, every morning at **9am US Eastern time**, GitHub sends a line from a Robert Burns
-poem to the board. Your iPad doesn't need to be switched on. The messages are in
-`love_messages.txt`, one per line, and come out in a random order with no repeats
-until every message has been used.
-
-**Add or change messages:** edit `love_messages.txt` on GitHub (tap the file, then
-the pencil icon). Keep each one to a line; it's wrapped onto the board automatically.
-
-**Change the time:** in `.github/workflows/love-message.yml`, the two `cron` lines
-are in UTC. For an hour earlier, change `47 12` → `47 11` and `47 13` → `47 12`, and make the
-same changes in the two `if` lines further down.
-
-**Why 13 minutes early:** each job is set for 13 minutes before the hour (8:47am for the
-love message, 11:47am for the riddle, 5:47pm for the answer, 7:47am for Christmas and
-the Halloween countdown, 8:47am for On this day),
-because GitHub is busiest on the hour and often starts scheduled jobs late.
-
-**Send one now:** on GitHub, go to **Actions → Daily love message → Run workflow**.
+**Change a time:** in the job's file in `.github/workflows`, the two `cron` lines are
+in UTC. For an hour earlier, take one off the second number in each (`47 12` → `47 11`),
+and make the same changes in the two `if` lines further down.
 
 **Note:** GitHub pauses scheduled jobs if nothing in the repository changes for 60
-days. It emails you first, and you can switch it back on from the Actions tab
-(or just edit a message).
+days. It emails you first, and you can switch them back on from the Actions tab
+(or just edit a riddle).
 
 ## Daily riddle
 

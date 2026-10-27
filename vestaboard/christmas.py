@@ -18,8 +18,7 @@ import sys
 import time
 from datetime import datetime
 
-from love_message import TIME_ZONE
-from send_message import build_board, preview, send_to_board
+from send_message import TIME_ZONE, build_board, preview, send_to_board
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sonos"))
 import sonos  # noqa: E402

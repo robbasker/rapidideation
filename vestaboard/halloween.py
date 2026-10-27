@@ -16,8 +16,7 @@ import argparse
 import sys
 from datetime import date, datetime
 
-from love_message import TIME_ZONE
-from send_message import build_board, preview, send_to_board
+from send_message import TIME_ZONE, build_board, preview, send_to_board
 
 COUNTDOWN_STARTS = (10, 1)  # October 1
 
