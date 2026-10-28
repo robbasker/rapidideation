@@ -35,7 +35,7 @@ computer needs to be left on at home.
 3. **Save the four values as GitHub secrets**, in the same place as `VESTABOARD_API_KEY`:
    `SONOS_CLIENT_ID`, `SONOS_CLIENT_SECRET`, `SONOS_REFRESH_TOKEN` and `SONOS_PLAYER_ID`.
 
-**Test it:** go to **Actions → Daily riddle → Run workflow** and choose **answer**.
+**Test it:** go to **Actions → Vestaboard → Run workflow** and choose **riddle answer**.
 
 **Play a sound any time:** go to **Actions → Play a sound → Run workflow** and pick
 **laugh** (a Halloween "mwa-ha-ha-ha-haaa", made by `make_evil_laugh.py`), **drumroll**

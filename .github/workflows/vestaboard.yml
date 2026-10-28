@@ -1,0 +1,63 @@
+name: Vestaboard
+
+on:
+  schedule:
+    # The plan itself (what goes up, and when) is in vestaboard/schedule.py.
+    # GitHub schedules use UTC, and US Eastern time is 4 hours behind UTC in summer and
+    # 5 in winter, so these cover each time in the plan both ways. schedule.py works out
+    # which time each run is for, and does nothing on the other one.
+    # If you change a time in the plan, `python3 schedule.py --check` says what to put here.
+    - cron: "47 11 * * *"
+    - cron: "47 12 * * *"
+    - cron: "47 13 * * *"
+    - cron: "47 15 * * *"
+    - cron: "47 16 * * *"
+    - cron: "47 21 * * *"
+    - cron: "47 22 * * *"
+  # Adds a "Run workflow" button on GitHub to send any of them straight away.
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "What to send"
+        type: choice
+        options: [riddle, riddle answer, on this day, halloween, christmas, list Sonos favourites]
+        default: riddle
+      date:
+        description: "Pretend it's this date, like 12-24 (leave empty for today)"
+        type: string
+        default: ""
+
+# Never two at once, so a sound and its message can't get mixed up with another run's.
+concurrency: vestaboard
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Send to the Vestaboard
+        working-directory: vestaboard
+        env:
+          VESTABOARD_API_KEY: ${{ secrets.VESTABOARD_API_KEY }}
+          SONOS_CLIENT_ID: ${{ secrets.SONOS_CLIENT_ID }}
+          SONOS_CLIENT_SECRET: ${{ secrets.SONOS_CLIENT_SECRET }}
+          SONOS_REFRESH_TOKEN: ${{ secrets.SONOS_REFRESH_TOKEN }}
+          SONOS_PLAYER_ID: ${{ secrets.SONOS_PLAYER_ID }}
+          SCHEDULE: ${{ github.event.schedule }}
+          WHAT: ${{ inputs.what }}
+          DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "$SCHEDULE" ]; then
+            python3 schedule.py --cron "$SCHEDULE"
+          elif [ "$WHAT" = "list Sonos favourites" ]; then
+            python3 ../sonos/sonos.py favourites
+          elif [ -n "$DATE" ]; then
+            python3 schedule.py --send "$WHAT" --date "$DATE"
+          else
+            python3 schedule.py --send "$WHAT"
+          fi
