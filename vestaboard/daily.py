@@ -17,7 +17,8 @@ from datetime import date, datetime
 from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
-from send_message import build_board, preview, send_to_board
+from board import build_board, preview
+from sender import send_to_board
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "sonos"))
