@@ -3,29 +3,26 @@
 A Halloween countdown on the Vestaboard.
 
 Every day from October 1 it shows how many days are left, and on Halloween itself
-it says Happy Halloween.
+it says Happy Halloween. schedule.py sends it each morning; to send one yourself:
 
-    python3 halloween.py              send today's countdown (only during October)
-    python3 halloween.py --days 3     send the countdown for 3 days to go (0 is Halloween)
-    python3 halloween.py --preview    just show it (works with --days too)
-    python3 halloween.py --in-season  succeeds only during the countdown (used by GitHub)
-    python3 halloween.py --check      check every day fits on the board
+    python3 halloween.py               send today's countdown (only during October)
+    python3 halloween.py --date 10-28  send the countdown for October 28
+    python3 halloween.py --preview     just show it (works with --date too)
+    python3 halloween.py --check       check every day fits on the board
 """
 
-import argparse
-import sys
-from datetime import date, datetime
+from datetime import date
 
-from send_message import TIME_ZONE, build_board, preview, send_to_board
+from daily import Show, run_cli
 
 COUNTDOWN_STARTS = (10, 1)  # October 1
 
 
-def days_to_go(today):
+def days_to_go(day):
     """Days left until Halloween, or None if the countdown isn't running."""
-    if (today.month, today.day) < COUNTDOWN_STARTS or today.month > 10:
+    if (day.month, day.day) < COUNTDOWN_STARTS or day.month > 10:
         return None
-    return (date(today.year, 10, 31) - today).days
+    return (date(day.year, 10, 31) - day).days
 
 
 def halloween_text(days):
@@ -35,35 +32,17 @@ def halloween_text(days):
     return f"{{orange}} {days} {unit} {{orange}}\nuntil\n{{orange}} Halloween {{orange}}"
 
 
-def main():
-    parser = argparse.ArgumentParser(description="A Halloween countdown on your Vestaboard.")
-    parser.add_argument("--days", type=int, help="Send the countdown for this many days to go")
-    parser.add_argument("--preview", action="store_true", help="Only show it; don't send it")
-    parser.add_argument("--in-season", action="store_true", help="Succeed only during the countdown")
-    parser.add_argument("--check", action="store_true", help="Check every day fits on the board")
-    args = parser.parse_args()
+def text_for(day):
+    days = days_to_go(day)
+    return None if days is None else halloween_text(days)
 
-    today = datetime.now(TIME_ZONE).date()
-    if args.in_season:
-        sys.exit(0 if days_to_go(today) is not None else 1)
 
-    longest = days_to_go(date(today.year, *COUNTDOWN_STARTS))
-    if args.check:
-        for days in range(longest + 1):
-            build_board(halloween_text(days))
-        print(f"All {longest + 1} days of the countdown fit on the board.")
-        return
+def all_texts():
+    longest = days_to_go(date(2000, *COUNTDOWN_STARTS))
+    return [halloween_text(days) for days in range(longest + 1)]
 
-    days = args.days if args.days is not None else days_to_go(today)
-    if days is None:
-        sys.exit("The countdown runs from October 1 to Halloween. Use --days to send one anyway.")
-    if not 0 <= days <= longest:
-        sys.exit(f"--days should be between 0 (Halloween) and {longest}.")
-    board = build_board(halloween_text(days))
-    preview(board)
-    if not args.preview:
-        send_to_board(board)
 
+HALLOWEEN = Show("halloween", text_for, all_texts)
 
 if __name__ == "__main__":
-    main()
+    run_cli(__doc__, [HALLOWEEN])

@@ -1,0 +1,24 @@
+name: Check the board
+
+# Whenever anything for the Vestaboard changes, check every riddle, headline and
+# countdown still fits on the board, so a problem shows up when you save it
+# rather than when it's due to go out.
+on:
+  push:
+    paths: ["vestaboard/**", "sonos/**", ".github/workflows/vestaboard.yml"]
+  pull_request:
+    paths: ["vestaboard/**", "sonos/**", ".github/workflows/vestaboard.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check everything fits
+        working-directory: vestaboard
+        run: python3 schedule.py --check
