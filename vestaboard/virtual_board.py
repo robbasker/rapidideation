@@ -25,7 +25,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from send_message import CODE_TO_CHAR, COLOR_CODES, COLS, ROWS, build_board
+from board import CODE_TO_CHAR, COLOR_CODES, COLS, ROWS, build_board
 
 DEFAULT_PORT = 7000
 
