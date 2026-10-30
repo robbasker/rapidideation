@@ -39,6 +39,23 @@ def send(board, api_key, url=API_URL):
         return response.status, response.read().decode(errors="replace")
 
 
+def read_board():
+    """What the Vestaboard is showing now, as rows of tile numbers, or None if it can't be read."""
+    if os.environ.get("VESTABOARD_VIRTUAL"):
+        return None
+    api_key = load_api_key()
+    if not api_key:
+        return None
+    request = urllib.request.Request(API_URL, headers={"X-Vestaboard-Token": api_key})
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            layout = json.loads(response.read() or b"{}").get("currentMessage", {}).get("layout")
+    except (urllib.error.URLError, ValueError) as error:
+        print(f"Couldn't read what's on the board ({error}), so sending anyway.")
+        return None
+    return json.loads(layout) if layout else None
+
+
 def send_to_board(board):
     """Send the board using the saved API key, explaining any problem in plain English."""
     if os.environ.get("VESTABOARD_VIRTUAL"):

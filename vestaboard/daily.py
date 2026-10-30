@@ -18,7 +18,7 @@ from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
 from board import build_board, preview
-from sender import send_to_board
+from sender import read_board, send_to_board
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "sonos"))
@@ -112,8 +112,12 @@ def check(shows):
     return problems
 
 
-def send(show, day, preview_only=False):
-    """Show the day's board in the terminal, play its sound, then send it."""
+def send(show, day, preview_only=False, skip_if_showing=False):
+    """Show the day's board in the terminal, play its sound, then send it.
+
+    With skip_if_showing, nothing happens (not even the sound) if the board already
+    shows it, so a late duplicate run doesn't replay the jingle or drum roll.
+    """
     text = show.text_for(day)
     if text is None:
         sys.exit(f"There's no {show.name} for {day:%B} {day.day}. Use --date to pick another day.")
@@ -123,6 +127,9 @@ def send(show, day, preview_only=False):
         sys.exit(f"Sorry: {error}")
     preview(board)
     if preview_only:
+        return
+    if skip_if_showing and read_board() == board:
+        print("The board is already showing this, so there's nothing to do.")
         return
 
     sound = show.sound_for(day)

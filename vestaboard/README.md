@@ -148,6 +148,14 @@ jobs late.
 message, or more than 3 hours late, it's skipped that day rather than showing up at
 the wrong time. The run's log on GitHub says what happened.
 
+**On time, every time: the outside timer.** GitHub's own schedule has been starting
+runs 3–6 hours late, so a free service, [cron-job.org](https://cron-job.org), starts
+the **Vestaboard** workflow at each time in the plan instead, choosing
+**whatever is due now**. Runs started that way begin within seconds. GitHub's own
+late runs still happen, but if the board already shows that slot's message they do
+nothing, so no jingle or drum roll plays twice. If you change a time in `SLOTS`,
+change it in the cron-job.org job too.
+
 **Send anything now:** **Actions → Vestaboard → Run workflow**, choose what to send,
 and optionally type a date like `12-24` to pretend it's that day.
 

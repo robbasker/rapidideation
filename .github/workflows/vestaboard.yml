@@ -20,7 +20,7 @@ on:
       what:
         description: "What to send"
         type: choice
-        options: [riddle, riddle answer, on this day, halloween, christmas, list Sonos favourites]
+        options: [riddle, riddle answer, on this day, halloween, christmas, list Sonos favourites, whatever is due now]
         default: riddle
       date:
         description: "Pretend it's this date, like 12-24 (leave empty for today)"
@@ -54,6 +54,9 @@ jobs:
         run: |
           if [ -n "$SCHEDULE" ]; then
             python3 schedule.py --cron "$SCHEDULE"
+          elif [ "$WHAT" = "whatever is due now" ]; then
+            # What the outside timer (cron-job.org) sends at each time in the plan.
+            python3 schedule.py --due
           elif [ "$WHAT" = "list Sonos favourites" ]; then
             python3 ../sonos/sonos.py favourites
           elif [ -n "$DATE" ]; then

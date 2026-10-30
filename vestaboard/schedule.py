@@ -11,6 +11,7 @@ run starts so late that it would cover up the next slot's message, or more than
     python3 schedule.py --send riddle          send one now (works with --date and --preview)
     python3 schedule.py --check                check everything fits, and the GitHub times match
     python3 schedule.py --cron "47 11 * * *"   what GitHub runs: send whatever that run is for
+    python3 schedule.py --due                  what the outside timer runs: send whatever is due now
 """
 
 import argparse
@@ -72,7 +73,24 @@ def run_scheduled(cron, now=None):
         # Each time has two cron lines, one for summer time and one for winter; this is the other one.
         print(f"This run is for {clock(planned.time())} Eastern, which isn't in the plan, so nothing to do.")
         return None
+    return run_slot(slot, planned, now)
 
+
+def run_due(now=None):
+    """Send whatever slot is due at this moment. Used by the outside timer (cron-job.org),
+    which starts the workflow at each slot's time. Returns the show sent, or None."""
+    now = now or datetime.now(timezone.utc)
+    local = now.astimezone(TIME_ZONE)
+    passed = [slot for slot in SLOTS if slot.time <= local.time()]
+    if not passed:
+        print(f"Nothing is due yet at {clock(local.time())} Eastern.")
+        return None
+    slot = passed[-1]
+    return run_slot(slot, datetime.combine(local.date(), slot.time, TIME_ZONE), now)
+
+
+def run_slot(slot, planned, now):
+    """Send the slot's show, unless it's too late or the next slot's time has come."""
     day = planned.date()
     show = due_show(slot, day)
     if show is None:
@@ -81,7 +99,7 @@ def run_scheduled(cron, now=None):
 
     late = now - planned
     minutes = int(late.total_seconds() // 60)
-    print(f"This is the {clock(slot.time)} {show.name}. GitHub started it {minutes} minute{'' if minutes == 1 else 's'} late.")
+    print(f"This is the {clock(slot.time)} {show.name}. It started {minutes} minute{'' if minutes == 1 else 's'} late.")
     if late > MAX_LATE:
         print(f"That's more than {int(MAX_LATE.total_seconds() // 3600)} hours late, so it's skipped today.")
         return None
@@ -91,7 +109,9 @@ def run_scheduled(cron, now=None):
             print(f"It's already time for the {clock(later.time)} {later_show.name}, so this one is skipped today.")
             return None
 
-    send(show, day)
+    # The outside timer and GitHub's own (often late) schedule can both run the same slot,
+    # so skip quietly if it's already up rather than replaying its sound.
+    send(show, day, skip_if_showing=True)
     return show
 
 
@@ -128,6 +148,7 @@ def main():
     parser.add_argument("--preview", action="store_true", help="With --send, only show it; don't send it")
     parser.add_argument("--check", action="store_true", help="Check everything fits on the board")
     parser.add_argument("--cron", help="Used by GitHub: send whatever this cron line's run is for")
+    parser.add_argument("--due", action="store_true", help="Used by the outside timer: send whatever is due now")
     args = parser.parse_args()
 
     if args.check:
@@ -135,6 +156,8 @@ def main():
         sys.exit(1 if problems else 0)
     if args.cron:
         run_scheduled(args.cron)
+    elif args.due:
+        run_due()
     elif args.send:
         send(SHOWS[args.send], args.date or today(), args.preview)
     else:
