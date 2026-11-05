@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baskerville Lodge - Murder Mystery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poiret+One&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* A storm-dark 1936 island house: slate and sea-black, brass deco lines, candle-warm text. */
+  /* Layout: one reading column, the story above and the choices below it; the notebook slides in. */
+  :root {
+    --night: #0d1214; --panel: #151c1f; --line: #2a3438; --text: #e6dfd0; --dim: #9b968b;
+    --brass: #c29a5b; --blood: #a3302c;
+    --display: "Poiret One", "Futura", "Century Gothic", sans-serif;
+    --body: "Spectral", Georgia, "Times New Roman", serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at 50% -10%, #1c2629 0%, var(--night) 60%) fixed, var(--night);
+    color: var(--text); font-family: var(--body); font-size: 19px; line-height: 1.65;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #rain { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .35; }
+  body.flash::after {
+    content: ""; position: fixed; inset: 0; background: #cfe3ea; pointer-events: none;
+    animation: flash .9s ease-out forwards;
+  }
+  @keyframes flash { 0% { opacity: .55; } 12% { opacity: 0; } 20% { opacity: .3; } 100% { opacity: 0; } }
+
+  .bar {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 20px; background: rgba(13, 18, 20, .92); border-bottom: 1px solid var(--line);
+  }
+  .bar .house { font-family: var(--display); letter-spacing: .18em; text-transform: uppercase; font-size: 15px; color: var(--brass); }
+  .bar .when { font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .pips { letter-spacing: .2em; color: var(--brass); }
+
+  main { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 32px 20px 64px; }
+  .kicker { font-family: var(--display); letter-spacing: .22em; text-transform: uppercase; font-size: 14px; color: var(--brass); margin: 0 0 6px; }
+  h1, h2 { font-family: var(--display); font-weight: 400; text-wrap: balance; margin: 0 0 22px; line-height: 1.15; }
+  h2 { font-size: 40px; }
+  h2::after { content: ""; display: block; width: 72px; height: 1px; background: var(--brass); margin-top: 16px; }
+  .story p { margin: 0 0 1em; }
+  .story p.ledger { font-style: italic; color: #d6cdb9; border-left: 2px solid var(--brass); padding-left: 16px; }
+  .story p.dead { color: #e2b3ac; }
+  .story p.clue { border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; border-radius: 4px; }
+  .story p.clue::before { content: "Into your notebook"; display: block; font-family: var(--display); letter-spacing: .16em; text-transform: uppercase; font-size: 12px; color: var(--brass); margin-bottom: 4px; }
+
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
+  .choices button, .btn {
+    font: inherit; font-size: 18px; text-align: left; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 14px 18px; cursor: pointer;
+    display: flex; gap: 12px; align-items: baseline; transition: border-color .15s, background .15s;
+  }
+  .choices button::before { content: "→"; color: var(--brass); }
+  .choices button:hover { border-color: var(--brass); }
+  .choices button small { display: block; color: var(--dim); font-size: 15px; margin-top: 2px; }
+  .choices button.risky::before { content: "!"; color: var(--blood); font-weight: 600; }
+  .choices button.back { background: transparent; color: var(--dim); }
+  .choices button.back::before { content: "←"; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+  .notebook-btn { font: inherit; font-size: 15px; color: var(--text); background: transparent; border: 1px solid var(--brass); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+  .drawer {
+    position: fixed; inset: 0 0 0 auto; width: min(460px, 100%); z-index: 3; background: var(--panel);
+    border-left: 1px solid var(--line); padding: 24px 22px 40px; overflow-y: auto;
+    transform: translateX(100%); transition: transform .25s ease; font-size: 17px;
+  }
+  .drawer.open { transform: none; box-shadow: -20px 0 50px rgba(0, 0, 0, .5); }
+  .drawer h3 { font-family: var(--display); font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--brass); font-size: 16px; margin: 26px 0 10px; }
+  .drawer .close { float: right; }
+  .drawer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .drawer li { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  .drawer .where { display: block; color: var(--dim); font-size: 14px; }
+  .who { display: flex; justify-content: space-between; gap: 10px; }
+  .chip { font-size: 13px; border: 1px solid var(--line); border-radius: 99px; padding: 1px 10px; white-space: nowrap; color: var(--dim); }
+  .chip.warm { color: #d9c08f; border-color: #6b5a3a; }
+  .chip.cold { color: #c99a95; border-color: #5a3532; }
+  .chip.dead { color: var(--blood); border-color: var(--blood); }
+  .empty { color: var(--dim); font-style: italic; }
+
+  /* Title screen */
+  .title { text-align: center; padding-top: 6vh; }
+  .title .over { font-family: var(--display); letter-spacing: .4em; text-transform: uppercase; color: var(--brass); font-size: 15px; }
+  .title h1 { font-size: clamp(46px, 9vw, 84px); margin: 14px 0 4px; letter-spacing: .04em; }
+  .title .sub { font-family: var(--display); letter-spacing: .5em; text-transform: uppercase; font-size: 18px; color: var(--dim); }
+  .title .rule { width: 1px; height: 70px; background: var(--brass); margin: 28px auto; }
+  .title p { max-width: 52ch; margin: 0 auto 1em; color: #cfc8b8; }
+  .title form { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 28px; }
+  .title label { font-size: 16px; color: var(--dim); }
+  .title input { font: inherit; font-size: 20px; text-align: center; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 10px 14px; width: min(320px, 100%); }
+  .title .btn { justify-content: center; text-align: center; width: min(320px, 100%); border-color: var(--brass); }
+  .title .note { font-size: 15px; color: var(--dim); margin-top: 30px; }
+
+  @media (max-width: 520px) { body { font-size: 18px; } h2 { font-size: 32px; } }
+  @media (prefers-reduced-motion: reduce) {
+    #rain { display: none; }
+    body.flash::after { animation: none; display: none; }
+    .drawer { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="rain" aria-hidden="true"></canvas>
+<header class="bar" id="bar" hidden>
+  <span class="house">Baskerville Lodge</span>
+  <span class="when" id="when"></span>
+  <button class="notebook-btn" id="openBook" aria-controls="drawer">Notebook</button>
+</header>
+<main id="main"></main>
+<aside class="drawer" id="drawer" aria-label="Notebook" aria-hidden="true">
+  <button class="notebook-btn close" id="closeBook">Close</button>
+  <h3 style="margin-top:6px">Clues</h3>
+  <ul id="bookClues"></ul>
+  <h3>The guests</h3>
+  <ul id="bookPeople"></ul>
+</aside>
+
+<script>
+// ===== The people =====
+
+const G = {
+  hollis:   { name: "Hollis", full: "Hollis, the butler" },
+  pell:     { name: "Dr Pell", full: "Dr Ambrose Pell", boat: "a big, soft man gripping the rail with both hands" },
+  cordelia: { name: "Lady Vane", full: "Lady Cordelia Vane", boat: "in furs, doing her best to look bored" },
+  marlow:   { name: "Captain Marlow", full: "Captain Hugh Marlow", boat: "watching the island the way a soldier watches a ridge" },
+  isobel:   { name: "Miss Crane", full: "Miss Isobel Crane", boat: "young, seasick and plainly terrified" },
+  ashby:    { name: "the Reverend Ashby", full: "The Reverend Thomas Ashby", boat: "murmuring to himself, eyes shut" },
+  julian:   { name: "Julian", full: "Julian Baskerville", boat: "Sir Edmund's nephew and heir, passing round a flask" },
+};
+const SUSPECTS = ["pell", "cordelia", "marlow", "isobel", "ashby", "julian"];
+
+// Read out at dinner from Sir Edmund's letter.
+const LEDGER = {
+  pell: "Dr Ambrose Pell, who operated on Mrs Elsie Tate with morphine in his veins and let her bleed to death on his table. He signed the certificate himself: heart failure.",
+  cordelia: "Lady Cordelia Vane, whose husband drank a glass of port she poured for him, and never woke. I have her letters. She wrote that she was tired of waiting.",
+  marlow: "Captain Hugh Marlow, who at Arras sent eleven men across open ground to cover his own retreat, and wrote to their mothers that they died bravely. He owes me fourteen thousand pounds.",
+  isobel: "Miss Isobel Crane, who was nursemaid to the Fairlie boy the winter he went through the ice on Loch Ard. She says she did not hear him calling. She did.",
+  ashby: "The Reverend Thomas Ashby, who held the only key to the schoolroom at St Bride's the night it burned with four children inside. He was not where he swore he was.",
+  julian: "My nephew Julian, who forged my name on cheques for two years and laughed about it at his club. I have changed my will. He knows.",
+};
+
+const METHODS = {
+  pell: "Drugged with morphine, injected under the ear",
+  cordelia: "Dosed with laudanum, then smothered",
+  marlow: "Strangled from behind with a cord",
+  isobel: "Drowned in the cove, and made to look like a fall",
+  ashby: "Beaten with a heavy brass candlestick",
+  julian: "Shot with a revolver, muffled by a pillow",
+};
+const MOTIVES = {
+  pell: "Edmund could prove a patient died under his knife",
+  cordelia: "Edmund had her letters about her husband's death",
+  marlow: "His debts to Edmund were about to ruin him",
+  isobel: "Revenge for what Edmund did to her mother",
+  ashby: "Edmund knew the truth about the schoolroom fire",
+  julian: "Edmund was cutting him out of the will",
+};
+
+// How each method leaves a body.
+const BODIES = {
+  pell: v => `${v} lies in bed as if asleep, but the face is the colour of candle wax and the pupils have shrunk to pinpricks. Under the left ear, a single bead of dried blood marks where a needle went in.`,
+  cordelia: v => `${v} is slumped in the armchair by the window, a pillow fallen to the floor. Tiny red spots freckle the whites of the eyes. On the side table stands a glass with a bitter brown film in the bottom, smelling of cloves.`,
+  marlow: v => `${v} lies in the corridor by the linen press. A thin, even bruise runs right round the throat: something narrow and strong, pulled tight from behind.`,
+  isobel: v => `${v} is found at the tideline in the cove, hair full of weed, as if fallen from the cliff path. But the shoes are still neatly laced and dry inside, and the cove is a hard scramble even in daylight.`,
+  ashby: v => `${v} lies face down by the library hearth. The back of the skull has been broken by a single heavy blow. Every fire iron is in its stand, clean.`,
+  julian: v => `${v} is in bed with a pillow over the face. There is a scorched hole through the pillow. All anyone heard in the night was something like a heavy book dropped on a carpet.`,
+};
+
+// What each possible killer leaves behind. Only the real killer's clues exist in a game.
+const K = {
+  pell: {
+    clues: {
+      study: "Behind the blotter, a letter in Sir Edmund's hand that was never sent: 'Pell. I have the coroner's notes on Mrs Tate. Come and see me on the 9th, and bring your chequebook.' The date is the night he died.",
+      kitchen: "Pushed deep into the flour bin and wrapped in muslin: a glass syringe with the needle still fitted. A drop of clear liquid trembles in the barrel.",
+      cliff: "Wedged between two stones at the foot of the broken rail, green with a year of weather: the brass clasp from a doctor's bag, engraved A.P.",
+    },
+    testimony: { by: "julian", text: "Julian lowers his voice. 'I came down for brandy last night, about one. Pell was coming out of the pantry with his bag. Said he'd wanted milk for his stomach. Milk. In his bag.'" },
+    night: "Through the banisters you see a lamp in the pantry and a broad shadow bent over the table, and hear the small chink of glass on glass, like someone counting out ampoules.",
+    watch: "Pell talks about his patients until midnight, then dozes and snores. When you wake at three the chair is empty and his bag has gone from beside the door. He is back by four, breathing hard, and pretends he never moved.",
+    room: "In the lining of the doctor's bag, slit and sewn up again with surgical thread: Hollis's envelope. Inside, in Sir Edmund's hand: 'If I die on Carrach, it was Ambrose Pell.'",
+    slip: "Pell blusters, then it comes out: 'Hollis went quickly, at least. Cyanide does.' Nobody has said cyanide. Pell never went into the pantry this morning. He couldn't have smelled the almonds.",
+    truth: "For six years Sir Edmund kept Ambrose Pell on a leash: the coroner's notes on Mrs Tate in exchange for prescriptions, signatures and silence. On the 9th of November 1935 Edmund raised the price. They walked the cliff path to talk where no one could hear, and Pell, shaking, sick for his next dose, put both hands on Edmund's back. He signed the death certificate himself. When the letter was read a year later, he knew the envelope would hang him, and a doctor knows a dozen quiet ways to stop a heart.",
+  },
+  cordelia: {
+    clues: {
+      hall: "In the ashes of the hearth, half burned: a lady's black kid glove. It still smells faintly of lavender water. The fingertips are stained brown, and it isn't soot.",
+      study: "The drawer marked V has been forced. Inside there is only a blue silk ribbon, the kind that ties a bundle of letters. The letters are gone. The ribbon smells of lavender.",
+      chapel: "In the dry stone font, wrapped in a handkerchief embroidered C: a small brown bottle labelled Tincture of Laudanum, from a chemist in Belgravia. It is half empty.",
+    },
+    testimony: { by: "isobel", text: "Isobel twists her hands together. 'Lady Vane came to my door last night and asked me, ever so sweetly, which rooms everyone was sleeping in. She said she wanted to apologise to someone for what she'd said at dinner.'" },
+    night: "A door opens on the guest corridor. Silk whispers past your hiding place, and the air behind it smells of lavender. A woman's figure, a glass in one hand, stops at a door and knocks very softly.",
+    watch: "Lady Vane offers you a sip of her sleeping draught 'for your nerves'. You pretend to drink. At two she rises and checks your breathing with the back of her hand. Then she goes out, and does not come back before dawn.",
+    room: "The hatbox has a false bottom. Beneath it, tied with nothing at all, her letters, and Hollis's envelope. Inside, in Sir Edmund's hand: 'If I die on Carrach, it was Cordelia Vane.'",
+    slip: "'Edmund screamed all the way down, you know,' she says, almost idly. Then she goes white. The coroner said nobody heard a thing. She was supposed to be in bed.",
+    truth: "Lady Cordelia Vane's husband died of an overdose of his own sleeping draught, poured by her hand into his port. Edmund had her letters to her lover, every one. On the 9th of November 1935 he asked her to walk with him and told her what they would cost. She paid the only way she could think of. A year later, with the envelope in Hollis's safe, she turned again to what had worked before: a sleeping draught, and then a pillow.",
+  },
+  marlow: {
+    clues: {
+      gunroom: "A coil of sash cord on the workbench has been cut cleanly with a very sharp blade, and about three feet of it is missing. In the sawdust underneath, the print of a heavy army boot.",
+      boathouse: "In the cold boiler, the charred remains of a sheaf of paper. One corner survived: an IOU, '...fourteen thousand pounds... H. Marlow', dated the week before Edmund died.",
+      cliff: "Pressed into the mud below the broken rail: a brass button with a stag's head on it, the badge of the Kintyre Fusiliers. Captain Marlow's regiment.",
+    },
+    testimony: { by: "ashby", text: "The vicar looks unhappy to be saying it. 'The Captain's boots were soaked through at breakfast, and white with salt. He told us all he never left the house.'" },
+    night: "There's a sliver of light under the gun-room door. Inside, someone is humming an old marching song and tying knots, quick and practised, over and over.",
+    watch: "Marlow keeps watch like a soldier, his back to the wall. You wake in the small hours to see him at the window, winding a length of cord round his fist and unwinding it. When he sees you're awake, he smiles and says he couldn't sleep.",
+    room: "Stuffed into the toe of his spare boot: Hollis's envelope. Inside, in Sir Edmund's hand: 'If I die on Carrach, it was Hugh Marlow.'",
+    slip: "'The old man didn't even cry out,' Marlow says. 'Went over like a sack of oats.' He catches himself. Nobody saw Edmund fall. Nobody who was in bed, anyway.",
+    truth: "Captain Hugh Marlow owed Edmund fourteen thousand pounds and his good name. On the 9th of November 1935 Edmund told him the debt was being called in, and the truth about Arras would be in every newspaper by Christmas. They argued on the cliff path. Marlow had killed men with his hands before, and he didn't think about it for longer than a second. When the letter was read a year later, he went back to what the army had taught him: quietly, from behind, with a cord.",
+  },
+  isobel: {
+    clues: {
+      boathouse: "On a nail in the boathouse hangs a woman's bathing costume, still dark with seawater. Nobody swims at Carrach in November. Nobody sane.",
+      cliff: "At the bottom of the cove path, which is barely a path at all, small bare footprints above the tideline, going down to the water and coming back.",
+      study: "Slipped inside a book of Scottish ballads: a photograph of Sir Edmund, thirty years younger, with his arm round a dark-haired girl. On the back: 'Mary Crane, Carrach, 1911.' Miss Crane has her eyes.",
+    },
+    testimony: { by: "cordelia", text: "Lady Vane leans close. 'That girl is no typist from Glasgow. I saw her at Edmund's funeral, at the back of the church, weeping as if she were his widow.'" },
+    night: "From the landing window you see a pale figure on the cove path below, barefoot in the rain, going down towards the water as surely as if it were broad daylight.",
+    watch: "Isobel falls asleep against your shoulder, light as a child. At two she is gone. At four she slips back in with her hair stiff with salt, and lies down as if she had never moved. She is shivering.",
+    room: "At the bottom of her sewing box, under the threads: Hollis's envelope, and a letter from a woman called Mary that begins 'He promised he would marry me.' Inside the envelope, in Sir Edmund's hand: 'If I die on Carrach, it will be the girl. Mary's girl.'",
+    slip: "'I used to swim in the cove every summer when I was small,' Isobel says, and stops. At dinner she told everyone she'd never set foot in the Highlands. Then, very quietly: 'He didn't scream. I thought he'd scream.'",
+    truth: "Isobel Crane was born on Carrach. Her mother, Mary, was a housemaid Edmund seduced and then turned out, pregnant, into the winter. Mary died in a Glasgow boarding house when Isobel was nine. Isobel took a post near the island and waited, and on the 9th of November 1935 she met him on the cliff path and told him whose daughter she was. He laughed. She had grown up swimming in that cove and knew its tides better than anyone alive. When the letter was read, she knew exactly where to take the others.",
+  },
+  ashby: {
+    clues: {
+      chapel: "One of the two brass altar candlesticks is missing. The other has been wiped clean, except for a rust-brown smear in the crease where the base meets the stem.",
+      kitchen: "In the scullery basin, water the colour of weak tea with a pinkness in it. Caught in the drain: a clerical collar stud.",
+      study: "In the margin of the razored ledger, in Edmund's spiky hand: 'Ashby. St Bride's. He had the key. Four children. Says he'll see me in hell first. We shall see, Vicar.'",
+    },
+    testimony: { by: "pell", text: "Pell mops his forehead. 'The Reverend asked me this morning, very casually, how hard one has to strike a man's head to kill him. For a sermon on Cain, he said. I don't remember Cain needing medical advice.'" },
+    night: "Out in the rain the chapel door bangs open and shut. Later, at the yard pump, a figure in a long dark coat scrubs at its hands for a very long time.",
+    watch: "The vicar prays aloud for an hour and then reads by candlelight. When you wake again the candle is a stub and his chair is empty. He comes in at dawn with wet cuffs and says he went to pray in the chapel.",
+    room: "His Bible has a hollow cut through the Psalms. Inside it: Hollis's envelope. In Sir Edmund's hand: 'If I die on Carrach, it was Thomas Ashby. He has done it before.'",
+    slip: "'God forgive me, I heard him,' Ashby says. 'That cry, going down.' Then his face changes. He told everyone his room was on the far side of the house. You can't hear the cliff from there.",
+    truth: "The Reverend Thomas Ashby locked the schoolroom at St Bride's himself that night in 1931 and went to a woman's house in the village. When the fire started, the key was in his pocket a mile away. Edmund found out and made him pay for silence, Sunday after Sunday. On the 9th of November 1935 Ashby went to beg him to stop, and on the cliff path, with Edmund laughing at him, he decided he was damned already and might as well earn it. A year later he took a candlestick from his own altar.",
+  },
+  julian: {
+    clues: {
+      gunroom: "The Webley revolver in the end case has been cleaned recently; the oil is fresh. In the box of cartridges beside it, one is missing.",
+      hall: "In the hearth, half burned, a document on the estate's thick paper: a codicil to the will, cutting 'my nephew Julian' out of everything. It is dated the 7th of November 1935, two days before Edmund died. It was never signed.",
+      boathouse: "Behind the stove-in boat, half buried in the shingle: a silver cigarette case engraved J.B. The single cigarette inside is dry. It hasn't been here long.",
+    },
+    testimony: { by: "marlow", text: "Marlow grunts. 'The boy asked me last night how much noise a service revolver makes through a feather pillow. Said he'd read it in a novel. I told him: not enough.'" },
+    night: "Somewhere above you, a muffled crack, like a heavy book dropped on a carpet. Then a door, and somebody whistling softly under their breath.",
+    watch: "Julian is charming company until one, then sleeps like the dead. At three you wake to find him gone, and the gun-room key you saw on the mantelpiece gone with him. Both are back by morning.",
+    room: "In his shaving kit, folded small: Hollis's envelope. Inside, in Sir Edmund's hand: 'If I die on Carrach, it was Julian. My own blood.'",
+    slip: "'Uncle never did look where he was going,' Julian says lightly. 'One push and...' He laughs, too late and too loud. 'One slip, I mean. One slip.'",
+    truth: "Julian Baskerville had been forging his uncle's name for two years when Edmund found out and drew up a codicil cutting him off without a penny. Two days later, before it could be signed, Julian walked his uncle along the cliff path and gave him the one push the family fortune needed. A year on, with the letter read and the envelope in Hollis's safe, he went to the gun room. He had always been a good shot.",
+  },
+};
+
+const PLACES = {
+  hall: {
+    name: "The great hall",
+    desc: "Antlers crowd the walls, forty years of dead stags staring down at the long table. The fire never quite warms the room, and the wind finds every gap in the old stone.",
+    herring: "Under the table you find a dropped place card, its ink run with spilled wine. Someone has scratched out the name and written one word over it: LIAR. The handwriting could be anyone's.",
+  },
+  study: {
+    name: "Sir Edmund's study",
+    desc: "His chair is still turned towards the window, as if he might come back to it. The desk is a reef of paper: estate accounts, letters, a ledger with half its pages razored out.",
+    herring: "In a drawer, a bundle of letters from creditors and a gun-cleaning kit with no gun. On the wall calendar, the 9th of November is ringed so hard the pen went through the paper.",
+  },
+  gunroom: {
+    name: "The gun room",
+    desc: "Racks of shotguns behind glass, oiled and waiting. It smells of metal and old tweed. The key is meant to hang on Hollis's belt, and Hollis is dead.",
+    herring: "Every gun is in its place. A box of cartridges has been opened and one row disturbed, but when you count, they're all there. Someone was looking for something, or wanted it to look that way.",
+  },
+  kitchen: {
+    name: "The kitchen and pantry",
+    desc: "Copper pans, a range that ticks as it cools, the long scrubbed table where Hollis took his meals alone. Rain hammers on the skylight.",
+    herring: "The cocoa tin is open on the shelf. You sniff it: only cocoa. A knife is missing from the block, but you find it in the sink, used for nothing worse than bread.",
+  },
+  boathouse: {
+    name: "The boathouse",
+    desc: "Down the slick steps to the water, where the island's one rowing boat lies stove in, its planks smashed by something heavier than the sea.",
+    herring: "The axe that smashed the boat hangs back on its hook, wiped clean. Whoever did it made very sure nobody could leave, and didn't care who knew it.",
+  },
+  cliff: {
+    name: "The cliff path",
+    desc: "Where Sir Edmund fell. The path runs along the edge above the cove, and the iron rail has never been mended. Its broken end still bends out over nothing.",
+    herring: "The wind nearly takes you. In the gorse by the broken rail, a scrap of tweed flutters on a thorn, bleached by the weather. It could have been here for a year.",
+  },
+  chapel: {
+    name: "The ruined chapel",
+    desc: "Roofless, older than the lodge and open to the rain. Edmund's family lie under the flagstones. Candles still stand on the altar, though no service has been said here in a hundred years.",
+    herring: "Someone has been here recently: a ring of fresh wax on the altar, as if a candle burned all night. Whoever prayed here didn't leave their name.",
+  },
+};
+
+const ROOMS = {
+  pell: "Dr Pell's room smells of camphor and something sweeter. His bag holds morphine, far more than any country doctor needs, but every ampoule is logged in a small, shaking hand. Whatever he is, he's careful.",
+  cordelia: "Silk dresses, a dozen pots of cream, a photograph of a heavy-jawed man turned face down. A bottle of sleeping draught on the nightstand, nearly full. Nothing else.",
+  marlow: "A soldier's room: bed made tight, boots in a line. A bundle of letters from an Edinburgh bookmaker, each more threatening than the last. A medal ribbon, cut away from its medal.",
+  isobel: "A plain, neat room. Two dresses, a cheap brush, and a memorial card for a little boy called Fairlie, soft and dog-eared from handling.",
+  ashby: "Black clothes, a Bible worn soft, a bottle of whisky three-quarters gone. A newspaper cutting about the St Bride's fire, folded so often it has worn through.",
+  julian: "Good shirts, unpaid tailor's bills, and a pack of cards that turns out to be marked. A letter from a woman in London asking when he'll have the money. Nothing worse.",
+};
+
+const TALK = {
+  pell: {
+    gentle: "Pell pours himself a drink with both hands. 'Thirty years a doctor. I've seen plenty of dead men. I've never seen living ones as frightened as this lot.' He looks at you for a long moment. 'Lock your door, my dear.'",
+    press: "'How dare you.' His hands shake so badly the glass rattles. 'Yes, I take something for my nerves. Half the men in Oban do. It doesn't make me a murderer.'",
+    confide: "'The night Edmund died I was... unwell,' Pell says. 'Hollis put me to bed at ten. I remember nothing until morning. That's the truth, God help me, and it's no alibi at all.'",
+  },
+  cordelia: {
+    gentle: "Lady Vane lights a cigarette from the fire. 'Edmund collected people the way he collected those wretched stags. Mounted, and looking surprised.' She almost smiles. 'You're the only one here who looks as though they might survive this.'",
+    press: "'You're very bold for a secretary,' she says, with ice in it. 'Ask your questions, then. I was in bed. Alone. As I have been, darling, for some years.'",
+    confide: "'I played cards with Julian until after midnight the night Edmund died,' she says. 'He cheated. I let him. Then I went up to bed. Ask him, if he remembers.'",
+  },
+  marlow: {
+    gentle: "The Captain stands at the window, watching the sea. 'We had a saying in France: it's never the shell you hear.' He glances at you. 'Stay where people can see you.'",
+    press: "Marlow's jaw sets. 'I've been questioned by better than you. I was in the billiard room with a bottle. Alone. Make of that what you like.'",
+    confide: "'The night the old man died I was so drunk I slept in the billiard room,' Marlow admits. 'Hollis found me there at six. That's God's truth, and I'm not proud of it.'",
+  },
+  isobel: {
+    gentle: "Isobel sits close to the fire with her knees drawn up. 'I keep thinking I hear someone calling outside,' she says. 'It's only the wind. Isn't it?'",
+    press: "'I don't know why I'm here!' Isobel's voice cracks. 'I got a letter and a ticket. I thought it was a job. I'd never even heard of Carrach.'",
+    confide: "'I wasn't on the island last year,' Isobel says. 'I was in Glasgow, at my typing school. There'll be a register.' She says it like something she has practised.",
+  },
+  ashby: {
+    gentle: "The vicar turns his cup round and round in his hands. 'I've buried a great many people. You learn which deaths are God's doing.' He looks up. 'None of these are.'",
+    press: "'I will not be bullied in my own...' Ashby stops himself. 'I was at prayer, in my room. God is my witness, which I realise is no use to you whatsoever.'",
+    confide: "'The night Edmund died I was in the chapel,' Ashby says quietly, 'praying for the strength to tell the truth about St Bride's. I didn't find it. I heard nothing over the wind.'",
+  },
+  julian: {
+    gentle: "Julian grins without any humour in it. 'I've waited a year to inherit this place, and now I'd give the lot for a boat.' He offers you a cigarette. 'Trust nobody. Except me, obviously.'",
+    press: "'Steady on.' Julian holds up his hands. 'Yes, I'm the heir. Yes, I'm a forger and a cad. I'm also a coward, and cowards don't murder people. Far too much effort.'",
+    confide: "'The night Uncle died I was playing cards with Lady Vane,' Julian says. 'She cheated. I let her. Then I went up about one and slept like a baby.'",
+  },
+};
+
+const BOAT = {
+  pell: "Pell tells you he hasn't been to sea since the war. 'Edmund's letter came the week of my retirement dinner,' he says. 'He always did have a sense of occasion.' His knuckles stay white on the rail the whole way across.",
+  cordelia: "'You're the secretary,' Lady Vane says, not quite a question. 'Then you know where he kept everything.' She offers you a sip from a silver flask and watches you over the top of it.",
+  marlow: "The Captain asks how many ways there are on and off the island. 'One,' you tell him. 'The jetty.' He nods slowly, as if you've confirmed something unpleasant.",
+  isobel: "Miss Crane admits she's never been on a boat before. As the island comes close she stares at it with an expression you can't read. It looks almost like recognition.",
+  ashby: "The vicar asks whether you were with Edmund at the end. You weren't. 'Nor was I,' he says, too quickly. 'Nor was I.'",
+  julian: "Julian hands you his flask. 'To dear Uncle Edmund,' he says, 'who is somehow still ruining my weekends.' Up close, his eyes are red-rimmed. He hasn't slept.",
+};
+
+const CLUE_PLACES = ["hall", "study", "gunroom", "kitchen", "boathouse", "cliff", "chapel"];
+const ACTIONS_PER_DAY = { 2: 3, 3: 3, 4: 2 };
+const TRUST_WORDS = ["Hostile", "Wary", "Guarded", "Warm", "Trusts you", "Devoted"];
+
+// ===== State =====
+
+const SAVE_KEY = "baskerville-lodge-save";
+let S = null;
+
+// A random number from 0 up to 1. Uses the browser's secure generator where it can,
+// because some viewers hand a page the same Math.random sequence every time it opens.
+const rand = () => {
+  try { return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32; } catch (e) { return Math.random(); }
+};
+const pick = arr => arr[Math.floor(rand() * arr.length)];
+const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// The last few killers, so the next game picks someone else.
+const RECENT_KEY = "baskerville-lodge-recent-killers";
+function chooseKiller() {
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) { /* not available */ }
+  const fresh = SUSPECTS.filter(id => !recent.includes(id));
+  const killer = pick(fresh.length ? fresh : SUSPECTS);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([killer, ...recent].slice(0, 3))); } catch (e) { /* not available */ }
+  return killer;
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const alive = id => !S.dead.includes(id);
+const aliveSuspects = () => SUSPECTS.filter(alive);
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function newState(name) {
+  const killer = chooseKiller();
+  const trust = {};
+  SUSPECTS.forEach(id => { trust[id] = 1; });
+  return {
+    name, killer, trust, awareness: 0, day: 1, actions: 0, dead: [], deaths: [],
+    order: shuffle(SUSPECTS.filter(id => id !== killer)),
+    searched: [], roomsSearched: [], talked: [], clues: [], notes: [],
+    protected: null, page: null, crept: false,
+  };
+}
+
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* not available */ } }
+function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* not available */ } }
+
+function addClue(key, text, where) {
+  if (S.clues.some(c => c.key === key)) return false;
+  S.clues.push({ key, text, where, day: S.day });
+  return true;
+}
+function addNote(text) { if (!S.notes.includes(text)) S.notes.push(text); }
+function trustUp(id, n) { S.trust[id] = Math.max(0, Math.min(5, S.trust[id] + n)); }
+
+// ===== Pages =====
+// A page is plain data: kicker, title, paragraphs, and choices that name an action.
+
+function setPage(page) {
+  S.page = page;
+  save();
+  render();
+}
+const P = (text, cls) => ({ text, cls });
+const C = (label, action, arg, opts = {}) => ({ label, action, arg, ...opts });
+
+function when() {
+  if (S.day === 1) return "The first evening";
+  return `Day ${S.day}`;
+}
+
+const A = {};  // actions, by name
+
+A.boat = () => setPage({
+  kicker: "Carrach, the Outer Hebrides. November 1936", title: "The crossing",
+  paras: [
+    P("The letter came in Sir Edmund Baskerville's own handwriting, a year after his funeral. 'You will come to Carrach on the 9th of November. You will come, because you know what I know.' Folded inside were a rail ticket to Oban and the name of a boatman."),
+    P("Now the boatman, Gorran, hunches at the tiller of a fishing boat that stinks of diesel and herring, and the island rises out of the grey water ahead: a black hump of rock, and on it a long stone house with every window lit."),
+    P("You were Sir Edmund's secretary for six years. You know the house. You know what kind of man he was. You never expected to see either again."),
+    P("There are six other passengers. Who will you sit beside for the crossing?"),
+  ],
+  choices: SUSPECTS.map(id => C(G[id].full, "boatSit", id, { sub: G[id].boat })),
+});
+
+A.boatSit = id => {
+  trustUp(id, 1);
+  setPage({
+    kicker: "Carrach, November 1936", title: "The crossing",
+    paras: [P(BOAT[id])],
+    choices: [C("Step onto the jetty", "arrive")],
+  });
+};
+
+A.arrive = () => setPage({
+  kicker: "The first evening", title: "Baskerville Lodge",
+  paras: [
+    P("Hollis, the butler, meets you on the jetty with a lantern. He has served the family for forty years and looks it: grey, upright, his face giving nothing away."),
+    P("Behind you, Gorran is already casting off. 'Three days,' he shouts over the engine. 'If the weather holds.' Nobody believes it will. By the time you reach the house, the rain is coming in sideways off the sea."),
+    P("Inside, nothing has changed. The stags on the walls. The smell of peat smoke and damp. Sir Edmund's chair at the head of the table, with no place laid in front of it."),
+    P("Dinner is at eight, and you're seated by card. Nobody would notice if you swapped yours. Who will you sit beside?"),
+  ],
+  choices: SUSPECTS.map(id => C(G[id].full, "dinner", id)),
+});
+
+A.dinner = id => {
+  trustUp(id, 1);
+  const ledger = SUSPECTS.map(g => P(`'${LEDGER[g]}'`, "ledger"));
+  ledger.splice(Math.floor(rand() * ledger.length), 0,
+    P(`'${esc(S.name)}, my secretary for six years, who sold my private letters to the Daily Courier for forty pounds and wept when I found out. Tears are cheap, ${esc(S.name)}.'`, "ledger"));
+  setPage({
+    kicker: "The first evening", title: "The ninth of November",
+    paras: [
+      P(`${G[id].full} keeps up a thin conversation through the soup. By the fish, you think you have an ally. By the pudding, nobody is speaking at all.`),
+      P("When the plates are cleared, Hollis brings in a long envelope on a silver tray and breaks the seal. 'Sir Edmund's instructions were that I read this to you tonight,' he says, 'exactly one year after his death.'"),
+      P("'My dear guests,' Hollis reads. 'I did not fall. One of you walked with me on the cliff path on the 9th of November, and one of you put your hands on my back. I have known for some time that it would come to this, so I have written that person's name and sealed it, and Hollis will hand it to the police when the boat returns. Until then, let us all be honest, as you have never been with anyone.'"),
+      P("And then, one by one, he names you."),
+      ...ledger,
+      P("The room is silent except for the rain. A glass goes over and the wine spreads across the white cloth like something worse."),
+    ],
+    choices: [C("Continue", "afterLetter")],
+  });
+};
+
+A.afterLetter = () => setPage({
+  kicker: "The first evening", title: "The envelope",
+  paras: [
+    P("Hollis folds the letter. 'The envelope is locked in the pantry safe,' he says. 'I have the only key. It stays there until the police come.' He bows and goes out. Nobody follows him. Nobody wants to be seen to."),
+    P("The guests drift apart in a fog of brandy and accusation. Julian laughs too loudly. Lady Vane goes up early. Captain Marlow checks the window latches one by one. Somewhere above, a door slams in the wind and everyone flinches."),
+    P("It's nearly midnight, and the storm has the island now. One of these people killed Edmund, and has three days before the boat comes back. Find out who before they find out what you know."),
+  ],
+  choices: [C("Go up to bed", "night")],
+});
+
+A.night = () => {
+  const n = S.day;
+  const intro = {
+    1: "Your room is the one you had as secretary, at the end of the east corridor. The lock is old and the key is stiff. The wind screams in the chimney.",
+    2: `${deadList()} Nobody wants to go upstairs. Nobody wants to stay down.`,
+    3: `${deadList()} Fewer doors close along the corridor tonight. Behind each one, someone is lying awake and listening, the same as you.`,
+  }[n];
+  const watchers = aliveSuspects().filter(id => S.trust[id] >= 2);
+  setPage({
+    kicker: `${when()}, night`, title: n === 1 ? "The first night" : "Another night",
+    paras: [P(intro), P("How will you get through the night?")],
+    choices: [
+      C("Lock the door and wedge a chair under the handle", "nightLock", null, { sub: "Safe, but you'll learn nothing." }),
+      ...watchers.map(id => C(`Ask ${G[id].name} to sit up with you`, "nightWatch", id, { sub: "Two people watching are harder to kill. If you've chosen well." })),
+      C("Creep through the house in the dark", "nightCreep", null, { risky: true, sub: "You might see something. Someone might see you." }),
+    ],
+  });
+};
+
+function deadList() {
+  const names = S.deaths.map(d => G[d.id].name);
+  if (names.length === 1) return `${cap(names[0])} is dead.`;
+  return `${names.slice(0, -1).map(cap).join(", ")} and ${names[names.length - 1]} are dead.`;
+}
+
+A.nightLock = () => { S.protected = null; nightPasses([P("You lie in the dark with the chair under the handle, listening to the house creak and settle. Once, very late, you think you hear the door handle turn, gently, and stop. You don't sleep again.")]); };
+
+A.nightWatch = id => {
+  if (id === S.killer) {
+    if (S.awareness >= 3) { die("watch"); return; }
+    addClue("watch", K[S.killer].watch, `Sitting up with ${G[id].name}, night ${S.day}`);
+    S.protected = null;
+    nightPasses([P(K[S.killer].watch, "clue")]);
+  } else {
+    S.protected = id;
+    trustUp(id, 1);
+    addNote(`${cap(G[id].name)} sat up with you on night ${S.day} and never left the room.`);
+    nightPasses([P(`You sit up with ${G[id].name} by the fire in your room, taking turns to sleep. Neither of you leaves. Whatever happens in the house tonight, it isn't ${G[id].name}'s doing.`)]);
+  }
+};
+
+A.nightCreep = () => {
+  S.protected = null;
+  const risk = Math.min(0.6, 0.12 + 0.12 * S.awareness);
+  if (rand() < risk) { die("creep"); return; }
+  S.awareness += 1;
+  const first = addClue("night", K[S.killer].night, `Creeping through the house, night ${S.day}`);
+  nightPasses(first
+    ? [P("You ease the door open and go along the corridor in your stockings, keeping to the wall where the boards don't creak."), P(K[S.killer].night, "clue"), P("You get back to your room without being seen. You think.")]
+    : [P("You creep the length of the house and back. Doors, draughts, the tick of cooling pipes. Nothing you haven't seen before, but somewhere a door closes softly as you pass, and you know you weren't the only one awake.")]);
+};
+
+function nightPasses(paras) {
+  // The killer strikes.
+  let victim;
+  if (S.day === 1) victim = "hollis";
+  else victim = S.order.find(id => alive(id) && id !== S.protected);
+  S.protected = null;
+  const kicker = `${when()}, night`;
+  if (victim) {
+    S.dead.push(victim);
+    S.deaths.push({ id: victim, day: S.day + 1 });
+  }
+  S.day += 1;
+  S.actions = ACTIONS_PER_DAY[S.day];
+  S.page = null;
+  setPage({
+    kicker, title: "Before dawn",
+    paras,
+    choices: [C("Morning", "morning", victim)],
+  });
+}
+
+A.morning = victim => {
+  const paras = [];
+  if (victim === "hollis") {
+    paras.push(P("A scream from the kitchen brings everyone running."));
+    paras.push(P("Hollis is sitting at the pantry table with a cup of cocoa gone cold in front of him. His lips are blue. There's a smell in the room like bitter almonds. Behind him the little safe stands open, the key still in the lock. The envelope is gone.", "dead"));
+    addClue("body:hollis", "Hollis was poisoned with cyanide in his cocoa. The safe key was taken from his belt, and the envelope with the killer's name is gone.", "The pantry, the first morning");
+    paras.push(P("Dr Pell, if he's any use, pronounces him dead. Someone has to say it, so you do: the person who killed Edmund is in this house, and now they have the envelope."));
+  } else if (victim) {
+    paras.push(P(`${cap(G[victim].name)} doesn't come down to breakfast.`));
+    const body = BODIES[S.killer](cap(G[victim].full));
+    paras.push(P(body, "dead"));
+    addClue(`body:${victim}`, body, `${cap(G[victim].name)}'s body, day ${S.day}`);
+    paras.push(P(S.day === 4
+      ? "There are fewer of you at the table now than there are chairs. Nobody can bring themselves to clear the empty places."
+      : "Nobody says anything for a long time. Then everyone starts talking at once, and none of it helps."));
+  }
+  document.body.classList.remove("flash"); void document.body.offsetWidth; document.body.classList.add("flash");
+  setPage({
+    kicker: `Day ${S.day}, morning`, title: victim === "hollis" ? "The pantry" : "Another empty chair",
+    paras, choices: [C("Begin the day", "hub")],
+  });
+};
+
+const WEATHER = {
+  2: "The storm hasn't let up. Spray bursts over the jetty, and the sea between Carrach and the mainland is white from end to end.",
+  3: "The rain has turned to sleet. The house is dark at noon. Somebody has lit every lamp, and it doesn't help.",
+  4: "The wind is dropping at last. If it holds, the boat may come tomorrow. Whoever did this knows it too.",
+};
+
+A.hub = () => {
+  if (S.actions <= 0) { (S.day === 4 ? A.lastEvening : A.evening)(); return; }
+  const choices = [
+    C("Search somewhere in the house or grounds", "places"),
+    C("Search someone's room while they're downstairs", "rooms"),
+    C("Talk to someone", "people"),
+  ];
+  if (S.day >= 3) choices.push(C("Gather everyone in the hall and name the killer now", "accuseConfirm"));
+  setPage({
+    kicker: `Day ${S.day}`, title: S.day === 4 ? "The last day" : "The house",
+    paras: [
+      P(WEATHER[S.day]),
+      P(`Still alive: ${aliveSuspects().map(id => G[id].full).join(", ")}, and you.`),
+      P(`You have time for ${S.actions === 1 ? "one more thing" : `${["", "one", "two", "three"][S.actions]} more things`} before dark.`),
+    ],
+    choices,
+  });
+};
+
+A.places = () => setPage({
+  kicker: `Day ${S.day}`, title: "Where will you search?",
+  paras: [P("You'll have to go alone, or the killer will know what you've found.")],
+  choices: [
+    ...CLUE_PLACES.filter(p => !S.searched.includes(p)).map(p => C(PLACES[p].name, "search", p)),
+    C("Back", "hub", null, { back: true }),
+  ],
+});
+
+A.search = place => {
+  S.searched.push(place);
+  S.actions -= 1;
+  const found = K[S.killer].clues[place];
+  const paras = [P(PLACES[place].desc)];
+  if (found) {
+    addClue(`place:${place}`, found, `${PLACES[place].name}, day ${S.day}`);
+    paras.push(P(found, "clue"));
+  } else {
+    paras.push(P(PLACES[place].herring));
+  }
+  setPage({ kicker: `Day ${S.day}`, title: PLACES[place].name, paras, choices: [C("Continue", "hub")] });
+};
+
+A.rooms = () => setPage({
+  kicker: `Day ${S.day}`, title: "Whose room?",
+  paras: [P("If they notice anything's been moved, they'll know you suspect them.")],
+  choices: [
+    ...aliveSuspects().filter(id => !S.roomsSearched.includes(id)).map(id => C(`${G[id].full}'s room`, "searchRoom", id)),
+    C("Back", "hub", null, { back: true }),
+  ],
+});
+
+A.searchRoom = id => {
+  S.roomsSearched.push(id);
+  S.actions -= 1;
+  const paras = [];
+  if (id === S.killer) {
+    S.awareness += 2;
+    addClue("room", K[S.killer].room, `${G[id].full}'s room, day ${S.day}`);
+    paras.push(P(K[S.killer].room, "clue"));
+    paras.push(P("You put everything back exactly as it was. Almost exactly. At dinner, you catch them watching you."));
+  } else {
+    if (rand() < 0.3) { trustUp(id, -1); paras.push(P(ROOMS[id]), P(`On the stairs you pass ${G[id].name}, who looks at you, then at the door you've just closed, and says nothing at all.`)); }
+    else paras.push(P(ROOMS[id]));
+  }
+  setPage({ kicker: `Day ${S.day}`, title: `${G[id].full}'s room`, paras, choices: [C("Continue", "hub")] });
+};
+
+A.people = () => setPage({
+  kicker: `Day ${S.day}`, title: "Who will you talk to?",
+  paras: [P("Everyone is lying about something. The trick is to find out what.")],
+  choices: [
+    ...aliveSuspects().map(id => C(G[id].full, "talkTo", id, { sub: TRUST_WORDS[S.trust[id]] })),
+    C("Back", "hub", null, { back: true }),
+  ],
+});
+
+A.talkTo = id => setPage({
+  kicker: `Day ${S.day}`, title: G[id].full,
+  paras: [P(`You find ${G[id].name} alone. How will you go about it?`)],
+  choices: [
+    C("Be kind, and listen", "talk", { id, how: "gentle" }, { sub: "They may open up, in time." }),
+    C("Press them hard about where they were", "talk", { id, how: "press" }, { sub: "Quicker, but they won't thank you for it." }),
+    ...(S.clues.length ? [C("Tell them what you've found so far", "talk", { id, how: "share" }, { sub: "Trust them with it, and they may trust you. If you've chosen well." })] : []),
+    C("Back", "people", null, { back: true }),
+  ],
+});
+
+A.talk = ({ id, how }) => {
+  S.actions -= 1;
+  const isKiller = id === S.killer;
+  const paras = [];
+  if (how === "gentle") {
+    trustUp(id, 1);
+    paras.push(P(TALK[id].gentle));
+  } else if (how === "press") {
+    trustUp(id, -1);
+    if (isKiller) {
+      S.awareness += 1;
+      addClue("slip", K[S.killer].slip, `Pressing ${G[id].name}, day ${S.day}`);
+      paras.push(P(K[S.killer].slip, "clue"));
+    } else {
+      paras.push(P(TALK[id].press));
+    }
+  } else {
+    trustUp(id, 2);
+    if (isKiller) S.awareness += 2;
+    paras.push(P(`You tell ${G[id].name} everything in your notebook. They listen very carefully, and ask a great many questions.`));
+  }
+  if (how !== "press" && S.trust[id] >= 3) {
+    const t = K[S.killer].testimony;
+    if (t.by === id) {
+      addClue("testimony", t.text, `Talking to ${G[id].name}, day ${S.day}`);
+      paras.push(P(t.text, "clue"));
+    } else {
+      paras.push(P(TALK[id].confide));
+      addNote(TALK[id].confide);
+    }
+  }
+  setPage({ kicker: `Day ${S.day}`, title: G[id].full, paras, choices: [C("Continue", "hub")] });
+};
+
+A.evening = () => {
+  const offerer = alive(S.killer) && S.awareness >= 2 ? S.killer : pick(aliveSuspects());
+  setPage({
+    kicker: `Day ${S.day}, evening`, title: "A nightcap",
+    paras: [
+      P("Dinner is cold meat and silence. Afterwards, the guests sit as far apart as the hall allows, each with their back to a wall."),
+      P(`Later, ${G[offerer].name} finds you by the dying fire with two glasses of whisky. 'You look as though you need this more than I do.'`),
+    ],
+    choices: [
+      C("Take the glass and drink", "nightcap", { offerer, drink: true }, { risky: true }),
+      C("Thank them, and leave it untouched", "nightcap", { offerer, drink: false }),
+    ],
+  });
+};
+
+A.nightcap = ({ offerer, drink }) => {
+  if (drink) {
+    if (offerer === S.killer && S.awareness >= 2) { die("nightcap"); return; }
+    trustUp(offerer, 1);
+    setPage({ kicker: `Day ${S.day}, evening`, title: "A nightcap", paras: [P(`It burns all the way down. You and ${G[offerer].name} talk for a while about nothing at all, and for a few minutes the house almost feels safe.`)], choices: [C("Go up", "night")] });
+  } else {
+    trustUp(offerer, -1);
+    setPage({ kicker: `Day ${S.day}, evening`, title: "A nightcap", paras: [P(`${cap(G[offerer].name)} shrugs and drinks both. 'Suit yourself.' But the look stays with you all the way upstairs.`)], choices: [C("Go up", "night")] });
+  }
+};
+
+A.lastEvening = () => setPage({
+  kicker: "Day 4, evening", title: "The last evening",
+  paras: [
+    P("The storm is blowing itself out. Far across the water there's a light: Gorran's boat, sheltering on the mainland, waiting for calm to cross at dawn."),
+    P("One more night. The killer knows it as well as you do."),
+    P("Everyone is gathered in the great hall, because nobody will be anywhere alone. And they are all looking at you. You knew Edmund best. You knew this house. It's time to say what you know."),
+  ],
+  choices: [C("Stand up and name the killer", "accuseWho")],
+});
+
+A.accuseConfirm = () => setPage({
+  kicker: `Day ${S.day}`, title: "Are you sure?",
+  paras: [P("Once you've named someone, there's no taking it back. If you're wrong, the real killer will know exactly what you know, and there'll be nobody left to stop them.")],
+  choices: [C("Yes. Gather everyone in the hall", "accuseWho"), C("Not yet", "hub", null, { back: true })],
+});
+
+A.accuseWho = () => setPage({
+  kicker: "The great hall", title: "Who killed Sir Edmund?",
+  paras: [P("You stand in front of the fire with your notebook in your hand. The room goes quiet.")],
+  choices: aliveSuspects().map(id => C(G[id].full, "accuseHow", { who: id })),
+});
+
+A.accuseHow = ({ who }) => setPage({
+  kicker: "The great hall", title: "How did they kill the others?",
+  paras: [P(`Every eye turns to ${G[who].name}. You keep going.`)],
+  choices: shuffle(SUSPECTS).map(m => C(METHODS[m], "accuseWhy", { who, how: m })),
+});
+
+A.accuseWhy = ({ who, how }) => setPage({
+  kicker: "The great hall", title: "Why did they kill Edmund?",
+  paras: [P("And then the part you're least sure of.")],
+  choices: shuffle(SUSPECTS).map(m => C(MOTIVES[m], "verdict", { who, how, why: m })),
+});
+
+A.verdict = ({ who, how, why }) => {
+  const k = S.killer;
+  const innocents = aliveSuspects().filter(id => id !== k);
+  const believed = innocents.length === 0 || innocents.reduce((n, id) => n + S.trust[id], 0) / innocents.length >= 2;
+  if (who !== k) {
+    ending("wrong", {
+      title: "The wrong door",
+      paras: [
+        P(`They believe you. That's the worst of it. ${cap(G[who].full)} protests, then pleads, then goes very quiet, and they lock ${G[who].name} in the wine cellar with a candle and a blanket.`),
+        P("You go to bed feeling almost safe for the first time in days."),
+        P(`At three in the morning, your door handle turns. It's ${G[k].full}. They don't say anything. There's nothing left to say.`, "dead"),
+        P("When Gorran's boat comes in at dawn, the police find a locked cellar, an innocent prisoner, and one more body than they were expecting."),
+      ],
+    });
+    return;
+  }
+  const full = how === k && why === k;
+  const paras = [
+    P(`'${cap(G[k].full)},' you say. For a moment nobody moves. Then ${G[k].name} laughs, and the laugh goes on too long, and stops.`),
+  ];
+  if (!believed) paras.push(P("At first the others won't have it. You've been prying into rooms and asking questions for days; why should they believe you? It's only when you lay out every clue on the long table, one by one, that the room turns."));
+  if (full) {
+    paras.push(P(`You tell them how it was done: ${METHODS[k].toLowerCase()}. And why: ${MOTIVES[k].charAt(0).toLowerCase() + MOTIVES[k].slice(1)}. Every word lands. ${cap(G[k].name)} stops pretending.`));
+    paras.push(P("They bind the killer's wrists with a curtain cord and sit up all night in a circle around them. In the grey dawn Gorran's boat comes in on a flat sea, and with it two policemen from Oban and a doctor who isn't afraid of anything."));
+    paras.push(P("As the boat pulls away, you look back at the lodge. Someone has drawn all the curtains, so that for once, the house can't see you go."));
+    ending("solved", { title: "The ledger closed", paras });
+  } else {
+    paras.push(P(`You have the right person, but not the whole story. ${!(how === k) ? "You've got the method wrong, and " : ""}${!(why === k) ? "you can't say why Edmund had to die, and " : ""}${cap(G[k].name)} sees the gap in it at once and goes straight for it.`));
+    paras.push(P("It's enough. Just. They lock the killer in the cellar, and nobody sleeps. When the police come at dawn, the case against them is thin, and a clever barrister will spend a long time pulling at the loose threads. But you're alive to give evidence, and on Carrach that counts as winning."));
+    ending("half", { title: "Half a confession", paras });
+  }
+};
+
+function die(how) {
+  const k = S.killer;
+  const texts = {
+    creep: {
+      title: "A step on the stair",
+      paras: [
+        P("You're halfway down the back stairs when you realise you can hear breathing that isn't yours."),
+        P("You never see their face. A hand in the dark, a shove, the long fall. In the morning they find you at the bottom of the stairs, and somebody says what a terrible accident, in this house, on these stairs.", "dead"),
+      ],
+    },
+    watch: {
+      title: "The long watch",
+      paras: [
+        P(`You sit up with ${G[k].name} by the fire, and you feel safe. That was always the idea.`),
+        P(`You wake once, in the small hours, to find ${G[k].name} standing over you. They've known for a while what you know. They aren't smiling.`, "dead"),
+      ],
+    },
+    nightcap: {
+      title: "The last nightcap",
+      paras: [
+        P(`The whisky is good, and ${G[k].name} is kind, and for a moment you forget to be afraid.`),
+        P("Then you taste it, under the peat smoke: bitter almonds. Your hands go numb first. The last thing you see is them, quite calm, taking the glass gently from your fingers before it can fall.", "dead"),
+      ],
+    },
+  }[how];
+  ending("dead", texts);
+}
+
+function ending(kind, { title, paras }) {
+  S.ending = kind;
+  const k = S.killer;
+  const found = S.clues.filter(c => !c.key.startsWith("body:")).length;
+  const missed = [];
+  for (const [place, text] of Object.entries(K[k].clues)) if (!S.clues.some(c => c.key === `place:${place}`)) missed.push(`${PLACES[place].name}: ${text}`);
+  if (!S.clues.some(c => c.key === "testimony")) missed.push(`${cap(G[K[k].testimony.by].full)}, if you'd earned their trust: ${K[k].testimony.text}`);
+  if (!S.clues.some(c => c.key === "room")) missed.push(`${G[k].full}'s room: ${K[k].room}`);
+  if (!S.clues.some(c => c.key === "slip")) missed.push(`Pressing ${G[k].name} hard: ${K[k].slip}`);
+  if (!S.clues.some(c => c.key === "night")) missed.push(`Creeping through the house at night: ${K[k].night}`);
+  if (!S.clues.some(c => c.key === "watch")) missed.push(`Sitting up with ${G[k].name}: ${K[k].watch}`);
+  clearSave();
+  S.page = {
+    kicker: { solved: "You survived", half: "You survived", wrong: "The end", dead: "The end" }[kind], title,
+    paras: [
+      ...paras,
+      P(`What really happened`, "heading"),
+      P(K[k].truth),
+      P(`It was ${G[k].full}. The others died by one method: ${METHODS[k].toLowerCase()}. You found ${found} of the ${8} clues that pointed to them.`),
+      ...(missed.length ? [P("The clues you missed", "heading"), ...missed.map(m => P(m))] : []),
+    ],
+    choices: [C("Play again, with a different killer", "restart")],
+  };
+  render();
+}
+
+A.restart = () => { const name = S.name; S = null; clearSave(); showTitle(name); };
+
+// ===== Drawing =====
+
+const mainEl = document.getElementById("main");
+const bar = document.getElementById("bar");
+
+function render() {
+  const p = S.page;
+  bar.hidden = false;
+  document.getElementById("when").innerHTML = S.day === 1 ? "The first evening"
+    : `Day ${S.day} of 4${S.actions > 0 && !S.ending ? ` <span class="pips" aria-label="${S.actions} actions left">${"◆".repeat(S.actions)}${"◇".repeat(ACTIONS_PER_DAY[S.day] - S.actions)}</span>` : ""}`;
+  const paras = p.paras.map(x => x.cls === "heading" ? `<p class="kicker" style="margin-top:2em">${x.text}</p>` : `<p${x.cls ? ` class="${x.cls}"` : ""}>${x.text}</p>`).join("");
+  mainEl.innerHTML = `
+    <p class="kicker">${p.kicker}</p>
+    <h2>${p.title}</h2>
+    <div class="story">${paras}</div>
+    <div class="choices">${p.choices.map((c, i) => `<button data-i="${i}" class="${c.risky ? "risky" : ""} ${c.back ? "back" : ""}"><span>${c.label}${c.sub ? `<small>${c.sub}</small>` : ""}</span></button>`).join("")}</div>`;
+  mainEl.querySelectorAll(".choices button").forEach(b => b.addEventListener("click", () => {
+    const c = p.choices[Number(b.dataset.i)];
+    A[c.action](c.arg);
+    window.scrollTo({ top: 0 });
+  }));
+  renderBook();
+}
+
+function renderBook() {
+  const clues = document.getElementById("bookClues"), people = document.getElementById("bookPeople");
+  const items = [...S.clues.map(c => `<li>${c.text}<span class="where">${c.where}</span></li>`), ...S.notes.map(n => `<li>${n}<span class="where">What you've been told</span></li>`)];
+  clues.innerHTML = items.length ? items.join("") : `<li class="empty">Nothing yet.</li>`;
+  people.innerHTML = SUSPECTS.map(id => {
+    const dead = !alive(id);
+    const t = S.trust[id];
+    const chip = dead ? `<span class="chip dead">Dead</span>` : `<span class="chip ${t >= 3 ? "warm" : t <= 0 ? "cold" : ""}">${TRUST_WORDS[t]}</span>`;
+    return `<li><div class="who"><strong>${G[id].full}</strong>${chip}</div><span class="where">${LEDGER[id]}</span></li>`;
+  }).join("") + `<li><div class="who"><strong>Hollis, the butler</strong>${alive("hollis") ? "" : `<span class="chip dead">Dead</span>`}</div></li>`;
+}
+
+const drawer = document.getElementById("drawer");
+const setBook = open => { drawer.classList.toggle("open", open); drawer.setAttribute("aria-hidden", String(!open)); };
+document.getElementById("openBook").addEventListener("click", () => setBook(true));
+document.getElementById("closeBook").addEventListener("click", () => setBook(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape") setBook(false); });
+
+function showTitle(name = "") {
+  bar.hidden = true;
+  setBook(false);
+  const saved = loadSave();
+  mainEl.innerHTML = `
+    <div class="title">
+      <div class="over">Carrach · 1936</div>
+      <h1>Baskerville Lodge</h1>
+      <div class="sub">Murder Mystery</div>
+      <div class="rule"></div>
+      <p>A year ago, Sir Edmund Baskerville fell from the cliff path below his island lodge. Tonight, his guests are summoned back to hear a letter he left behind, and to learn that one of them pushed him.</p>
+      <p>The boat won't return for three days. Search the house, win the others' trust, survive the nights, and name the killer before they silence you. Choose carefully: the killer is different every time you play.</p>
+      <form id="startForm">
+        <label for="playerName">You were Sir Edmund's secretary. What is your name?</label>
+        <input id="playerName" maxlength="24" autocomplete="off" value="${esc(name)}" placeholder="Your name">
+        <button class="btn" type="submit">Begin</button>
+        ${saved && saved.page ? `<button class="btn" type="button" id="continue">Continue your game (day ${saved.day})</button>` : ""}
+      </form>
+      <p class="note">For adults. Contains murder, poisoning and dark themes.</p>
+    </div>`;
+  document.getElementById("startForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const n = document.getElementById("playerName").value.trim() || "Lou";
+    S = newState(n);
+    A.boat();
+  });
+  document.getElementById("continue")?.addEventListener("click", () => { S = saved; render(); });
+}
+
+// ===== Rain =====
+
+(function rain() {
+  const cv = document.getElementById("rain");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const ctx = cv.getContext("2d");
+  let drops = [];
+  const size = () => {
+    cv.width = innerWidth; cv.height = innerHeight;
+    drops = Array.from({ length: Math.round(innerWidth / 9) }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, l: 10 + Math.random() * 18, v: 9 + Math.random() * 8 }));
+  };
+  size(); addEventListener("resize", size);
+  (function frame() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = "rgba(170, 196, 204, .45)"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const d of drops) {
+      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.l * 0.25, d.y + d.l);
+      d.y += d.v; d.x -= d.v * 0.25;
+      if (d.y > cv.height) { d.y = -20; d.x = Math.random() * (cv.width + 100); }
+    }
+    ctx.stroke();
+    requestAnimationFrame(frame);
+  })();
+})();
+
+// ===== Start =====
+
+function start(data) {
+  if (data && data.S && data.S.page) { S = data.S; render(); }
+  else showTitle();
+}
+window.claude?.hot?.snapshot?.(() => ({ S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
