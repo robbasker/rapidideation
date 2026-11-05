@@ -115,6 +115,12 @@ something looks (flapping tiles and all) before it goes to the real board.
    VESTABOARD_VIRTUAL=1 python3 christmas.py --date 12-16
    ```
 
+**Wave:** `VESTABOARD_VIRTUAL=1 python3 wave.py` rolls a sea-coloured wave across the whole board (blue
+water, a green swell, a white foam crest) that crashes against the right side, then
+rolls back and crashes against the left. Add `--times 3`
+to repeat it. It works on the real board too, but only moves one step every 15
+seconds because of Vestaboard's limit.
+
 The virtual board accepts exactly what the real one does, so anything that works
 there will work on your Note. It doesn't need an API key, and the Sonos stays quiet.
 
