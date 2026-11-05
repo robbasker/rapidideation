@@ -229,7 +229,7 @@ async function refresh() {
   } catch (e) { /* the server is restarting; try again shortly */ }
 }
 refresh();
-setInterval(refresh, 1000);
+setInterval(refresh, 250);
 
 const form = document.getElementById("form");
 const text = document.getElementById("text");
