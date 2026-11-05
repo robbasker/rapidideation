@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Up the Divisions - Football Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  /* A 90s Saturday teatime: floodlit navy, teletext yellow scores, a vidiprinter for the commentary. */
+  :root {
+    --bg: #06111d; --panel: #0d1c2d; --panel2: #13283f; --line: #213851; --text: #e9eff6; --dim: #8ea3b9;
+    --yellow: #ffd23f; --green: #43d17a; --cyan: #4cc9e0; --red: #ff6464; --tele-blue: #1a3cae;
+    --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --body: "Barlow", system-ui, sans-serif;
+    --tele: "VT323", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(ellipse at 50% -20%, #183150 0%, var(--bg) 55%) fixed, var(--bg);
+    color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.45;
+    -webkit-tap-highlight-color: transparent; min-height: 100vh;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+  .bar { display: flex; align-items: center; gap: 14px; padding: 12px 20px; background: #040b14; border-bottom: 3px solid var(--yellow); }
+  .bar .club { font-family: var(--display); font-weight: 700; font-size: 24px; text-transform: uppercase; letter-spacing: .04em; line-height: 1; }
+  .bar .meta { font-family: var(--tele); font-size: 21px; color: var(--yellow); letter-spacing: .03em; margin-top: 2px; }
+  .bar .meta span + span::before { content: " · "; color: var(--dim); }
+  .badge { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; flex: none;
+    font: 700 13px var(--display); letter-spacing: .04em; color: #fff; border: 2px solid rgba(255,255,255,.75); text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .badge.sm { width: 22px; height: 22px; font-size: 9px; border-width: 1px; vertical-align: middle; margin-right: 6px; }
+
+  nav { display: flex; gap: 2px; padding: 0 12px; background: #081626; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 12px 16px 9px; cursor: pointer;
+    font: 600 17px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+  nav button.on { color: var(--text); border-bottom-color: var(--yellow); }
+  nav .dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: var(--red); color: #fff; font-size: 12px; line-height: 18px; text-align: center; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 22px 16px 70px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .card.hero { border-color: #3a5576; background: linear-gradient(180deg, #13283f, var(--panel)); }
+  h2, h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 10px; line-height: 1.1; }
+  h2 { font-size: 28px; } h3 { font-size: 18px; color: var(--yellow); }
+  .kicker { font: 600 14px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
+  p { margin: 0 0 10px; }
+  .dim { color: var(--dim); } .small { font-size: 14px; } .good { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--yellow); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spread { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .quote { border-left: 3px solid var(--cyan); padding: 4px 0 4px 12px; margin: 10px 0; color: #cfe0ee; font-style: italic; }
+
+  .btn { font: 600 16px var(--display); letter-spacing: .07em; text-transform: uppercase; background: var(--panel2); color: var(--text);
+    border: 1px solid #36506e; border-radius: 5px; padding: 10px 16px; cursor: pointer; }
+  .btn:hover { border-color: var(--yellow); }
+  .btn.go { background: var(--yellow); color: #0b1520; border-color: var(--yellow); }
+  .btn.go:hover { filter: brightness(1.08); }
+  .btn.bad { border-color: #7a3434; color: #ffb0b0; }
+  .btn.sm { padding: 5px 10px; font-size: 14px; }
+  .btn.on { background: var(--cyan); color: #04141b; border-color: var(--cyan); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .seg { display: inline-flex; border: 1px solid #36506e; border-radius: 5px; overflow: hidden; }
+  .seg button { background: var(--panel2); border: 0; padding: 7px 12px; cursor: pointer; font: 600 14px var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .seg button + button { border-left: 1px solid #36506e; }
+  .seg button.on { background: var(--cyan); color: #04141b; }
+  select, input[type=number], input[type=text] { background: #071423; border: 1px solid #36506e; border-radius: 4px; padding: 6px 8px; }
+
+  .tablewrap { overflow-x: auto; margin: 0 -4px; }
+  table.t { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
+  .t th { font: 600 13px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .t td { padding: 7px 6px; border-bottom: 1px solid #172a40; white-space: nowrap; }
+  .t .n { text-align: right; }
+  .t tr.click { cursor: pointer; }
+  .t tr.click:hover td { background: #102338; }
+  .t tr.me td { background: rgba(255, 210, 63, .1); }
+  .t tr.me td:first-child { box-shadow: inset 3px 0 var(--yellow); }
+  .t td.zup { box-shadow: inset 3px 0 var(--green); } .t td.zpo { box-shadow: inset 3px 0 var(--cyan); }
+  .t td.zdown { box-shadow: inset 3px 0 var(--red); } .t td.zchamp { box-shadow: inset 3px 0 var(--yellow); }
+  .t .nm { font-weight: 500; }
+  .key { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--dim); margin-top: 8px; }
+  .key i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 2px; vertical-align: -1px; }
+
+  .rb { display: inline-block; position: relative; width: 70px; height: 8px; border-radius: 4px; background: #1a2c42; vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .rb i { position: absolute; inset: 0 auto 0 0; background: var(--green); }
+  .rb b { position: absolute; top: 0; bottom: 0; background: rgba(67, 209, 122, .35); }
+  .rnum { font-family: var(--tele); font-size: 19px; color: #c7f5d6; }
+  .tag { display: inline-block; font: 600 12px var(--display); letter-spacing: .06em; text-transform: uppercase; border-radius: 3px; padding: 1px 6px; margin-right: 4px; border: 1px solid; }
+  .tag.inj { color: var(--red); border-color: #7a3434; } .tag.list { color: var(--cyan); border-color: #2a6b78; }
+  .tag.loan { color: var(--dim); border-color: #3d556f; } .tag.scout { color: var(--yellow); border-color: #7a6a2a; }
+  .pos { font: 600 13px var(--display); letter-spacing: .05em; color: var(--dim); }
+
+  .meter { height: 12px; border-radius: 6px; background: #1a2c42; overflow: hidden; margin: 6px 0 4px; }
+  .meter i { display: block; height: 100%; border-radius: 6px; transition: width .4s; }
+
+  .inbox { display: flex; flex-direction: column; gap: 8px; }
+  .msg { border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px; background: #0a1828; }
+  .msg.new { border-color: #3a5576; }
+  .msg .when { font-family: var(--tele); font-size: 17px; color: var(--dim); }
+  .msg b { display: block; font-weight: 600; }
+  .msg p { margin: 4px 0 0; color: #c9d6e3; font-size: 15px; }
+  .msg .row { margin-top: 8px; }
+
+  .fixture { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 10px 0 12px; }
+  .fixture .side { display: flex; align-items: center; gap: 10px; font: 700 21px var(--display); text-transform: uppercase; }
+  .fixture .side.away { justify-content: flex-end; text-align: right; }
+  .fixture .v { font-family: var(--tele); font-size: 26px; color: var(--yellow); }
+  .results { font-family: var(--tele); font-size: 19px; line-height: 1.3; }
+  .results div { display: grid; grid-template-columns: 1fr 52px 1fr; gap: 8px; }
+  .results div span:first-child { text-align: right; }
+  .results div span:nth-child(2) { color: var(--yellow); text-align: center; }
+  .results .mine { color: #fff; background: rgba(255,210,63,.08); }
+
+  /* Match */
+  .scoreboard { background: #000; border: 2px solid #1d2c3d; border-radius: 6px; padding: 14px 16px 10px; font-family: var(--tele); }
+  .sb-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+  .sb-team { font-size: clamp(22px, 4vw, 34px); color: var(--yellow); text-transform: uppercase; line-height: 1; }
+  .sb-team.away { text-align: right; }
+  .sb-score { font-size: clamp(48px, 9vw, 74px); color: #fff; line-height: .9; letter-spacing: .05em; }
+  .sb-clock { text-align: center; color: var(--cyan); font-size: 26px; }
+  .sb-stats { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; color: #b9c8d8; font-size: 19px; margin-top: 6px; }
+  .sb-stats > :nth-child(2) { color: var(--dim); text-align: center; }
+  .sb-stats > :nth-child(3) { text-align: right; }
+  .possbar { height: 6px; display: flex; margin-top: 8px; border-radius: 3px; overflow: hidden; }
+  .scorers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 18px; color: #e0e8f0; margin-top: 4px; }
+  .scorers > :last-child { text-align: right; }
+  .feed { margin-top: 14px; background: #000; border-radius: 6px; padding: 8px 0; font-family: var(--tele); font-size: 21px; line-height: 1.25; min-height: 200px; max-height: 52vh; overflow-y: auto; }
+  .feed div { padding: 3px 14px; color: #e8e8e8; }
+  .feed .min { display: inline-block; width: 42px; color: var(--cyan); }
+  .feed .goal { background: var(--tele-blue); color: var(--yellow); font-size: 25px; padding: 6px 14px; }
+  .feed .goal .min { color: #fff; }
+  .feed .card { color: var(--yellow); background: none; border: 0; border-radius: 0; }
+  .feed .red { color: var(--red); } .feed .sub { color: var(--cyan); } .feed .q { color: #8d9aa8; }
+  .feed .ht { color: #fff; text-align: center; letter-spacing: .2em; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .tactics { margin-top: 14px; }
+  .tactics .row + .row { margin-top: 10px; }
+
+  /* Modal */
+  .modal { position: fixed; inset: 0; z-index: 10; background: rgba(2, 8, 14, .72); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 14px 20px; overflow-y: auto; }
+  .modal[hidden] { display: none; }
+  .sheet { position: relative; width: min(600px, 100%); background: var(--panel); border: 1px solid #36506e; border-radius: 8px; padding: 20px 20px 22px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .sheet .x { position: absolute; top: 10px; right: 10px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; margin: 12px 0; }
+  .facts div { font-size: 15px; } .facts span { display: block; font: 600 12px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .answer { margin-top: 10px; padding: 10px 12px; border-radius: 5px; background: #0a1828; border: 1px solid var(--line); }
+  .answer:empty { display: none; }
+
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #fff; color: #0b1520; padding: 10px 16px; border-radius: 6px; font-weight: 500; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 90vw; }
+
+  /* Title */
+  .title { text-align: center; padding-top: 4vh; }
+  .title .over { font: 600 16px var(--display); letter-spacing: .3em; text-transform: uppercase; color: var(--cyan); }
+  .title h1 { font: 700 clamp(48px, 10vw, 92px) var(--display); text-transform: uppercase; margin: 6px 0 0; line-height: .95; letter-spacing: .02em; }
+  .title h1 em { font-style: normal; color: var(--yellow); }
+  .title .tele { font-family: var(--tele); font-size: 22px; color: var(--yellow); margin: 14px 0 22px; }
+  .title .lede { max-width: 58ch; margin: 0 auto 26px; color: #c9d6e3; }
+  .clubs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; text-align: left; margin: 16px 0 22px; }
+  .clubpick { background: var(--panel); border: 2px solid var(--line); border-radius: 6px; padding: 14px; cursor: pointer; text-align: left; }
+  .clubpick.on { border-color: var(--yellow); background: var(--panel2); }
+  .clubpick .nm { font: 700 20px var(--display); text-transform: uppercase; margin: 8px 0 4px; }
+  .startbox { max-width: 760px; margin: 0 auto; }
+
+  @media (max-width: 560px) {
+    .bar .club { font-size: 19px; } .bar .meta { font-size: 18px; }
+    .fixture .side { font-size: 17px; }
+    main { padding: 16px 10px 60px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+</head>
+<body>
+<header class="bar" id="bar"></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script>
+'use strict';
+// ===================== Rules of the world =====================
+const DIVS = ['Premier Division', 'First Division', 'Second Division', 'Third Division', 'Conference'];
+const DIV_SHORT = ['PREM', 'DIV 1', 'DIV 2', 'DIV 3', 'CONF'];
+const TIER_BASE = [76, 65, 55, 46, 38];           // typical player ability in each division
+const GATE = [24000, 12000, 5500, 2200, 800];     // typical home crowd
+const TICKET = [30, 22, 16, 11, 8];
+const TV = [50000, 15000, 4000, 1200, 600];       // weekly TV and sponsorship
+const COSTS = [150000, 60000, 22000, 6000, 1200]; // weekly running costs
+const PRIZE = [400000, 80000, 20000, 6000, 2000]; // per place, paid at season end
+const TB_BASE = [2000000, 400000, 80000, 20000, 8000];
+const WB_BASE = [140000, 35000, 9000, 3000, 2000];
+const START_BANK = [4000000, 800000, 150000, 40000, 15000];
+const WEEKS = 22, WINDOW_LAST = 12, MAX_SQUAD = 26, MIN_SQUAD = 14, MAX_SCOUTS = 3, MAX_LOANS = 3;
+const POSS = ['GK', 'DF', 'MF', 'FW'];
+const POS_NAME = { GK: 'Goalkeeper', DF: 'Defender', MF: 'Midfielder', FW: 'Forward' };
+const FORMS = {
+  '4-4-2': { GK: 1, DF: 4, MF: 4, FW: 2 }, '4-3-3': { GK: 1, DF: 4, MF: 3, FW: 3 }, '4-5-1': { GK: 1, DF: 4, MF: 5, FW: 1 },
+  '5-3-2': { GK: 1, DF: 5, MF: 3, FW: 2 }, '3-5-2': { GK: 1, DF: 3, MF: 5, FW: 2 },
+};
+const STYLES = ['Defensive', 'Balanced', 'Attacking'];
+const STYLE_MOD = { Defensive: { a: .88, d: 1.12, tempo: .85 }, Balanced: { a: 1, d: 1, tempo: 1 }, Attacking: { a: 1.12, d: .88, tempo: 1.18 } };
+const SAVE_KEY = 'up-the-divisions-v1';
+
+const TOWNS = ['Ashbridge', 'Kelmouth', 'Brackenford', 'Calderholme', 'Dunmere', 'Eastwold', 'Felsworth', 'Gorrick', 'Hollinsbank',
+  'Islethorpe', 'Jarrowby', 'Kingsmere', 'Lowbeck', 'Marlstone', 'Nethercombe', 'Oakhaven', 'Pellingham', 'Quarrington', 'Redmarsh',
+  'Saltmere', 'Tarnby', 'Upperwick', 'Valecross', 'Wexley', 'Yarnford', 'Ambleton', 'Birchmoor', 'Coldharbour', 'Drayfield', 'Elmsworth',
+  'Foxleigh', 'Greysham', 'Harrowmere', 'Ilkworth', 'Kettlebury', 'Langholme', 'Millbrook', 'Northcastle', 'Oldhaven', 'Penmarrow',
+  'Ravensby', 'Stanwick', 'Thrushton', 'Wolverby', 'Westmarsh', 'Brightwater', 'Cindermoor', 'Dalesby', 'Ellerton', 'Fernhollow',
+  'Gallowsbridge', 'Hartlepoint', 'Kirkhallam', 'Lindisworth', 'Moorcastle', 'Porthaven', 'Rookwood', 'Stonebury', 'Tidewell',
+  'Whitcombe', 'Copperdale', 'Blackwater', 'Sedgemoor', 'Larkhill', 'Bramblecote'];
+const SUFFIX = ['Town', 'Town', 'United', 'United', 'City', 'Rovers', 'Athletic', 'Albion', 'Wanderers', 'County', 'Borough', 'Rangers', 'FC', 'Villa', 'Harriers', 'Dynamos'];
+const FIRST = ['Alan', 'Andy', 'Barry', 'Ben', 'Billy', 'Callum', 'Chris', 'Colin', 'Craig', 'Danny', 'Darren', 'Dean', 'Gary', 'Gavin',
+  'Graham', 'Ian', 'Jamie', 'Jason', 'Joe', 'Jon', 'Karl', 'Kevin', 'Lee', 'Liam', 'Mark', 'Martin', 'Matt', 'Mick', 'Neil', 'Nicky',
+  'Paul', 'Pete', 'Phil', 'Ray', 'Rob', 'Ryan', 'Scott', 'Sean', 'Simon', 'Steve', 'Stuart', 'Terry', 'Tom', 'Tony', 'Wayne', 'Adebayo',
+  'Kwame', 'Luca', 'Mateo', 'Jens', 'Pieter', 'Sami', 'Tomasz', 'Yannick', 'Kofi', 'Rui', 'Niall', 'Declan', 'Ewan', 'Owen', 'Rhys',
+  'Gareth', 'Dion', 'Marcus', 'Lenny', 'Vince', 'Stig', 'Aidan', 'Shaun', 'Glen'];
+const LAST = ['Ashworth', 'Barker', 'Bramley', 'Brennan', 'Carter', 'Clegg', 'Cooper', 'Crossley', 'Dawson', 'Doyle', 'Fenwick', 'Fletcher',
+  'Garside', 'Goodwin', 'Hadley', 'Hargreaves', 'Holt', 'Hughes', 'Ingham', 'Jarvis', 'Kenning', 'Lambert', 'Lockwood', 'Marsh',
+  'McAllister', 'Merritt', 'Moss', 'Naylor', 'Oakes', 'Okafor', 'Parry', 'Pickering', 'Quinn', 'Radford', 'Rowley', 'Sadler', 'Shaw',
+  'Stokes', 'Swales', 'Thorne', 'Tranter', 'Varley', 'Wadsworth', 'Walsh', 'Whitaker', 'Wilde', 'Yates', 'Bianchi', 'Mensah', 'Kowalski',
+  'de Vries', 'Lindqvist', 'Moreau', 'Haddad', 'Osei', 'Ferreira', 'Duffy', 'Gallagher', 'Kerr', 'Pryce', 'Llewellyn', 'MacLeod',
+  'Brannigan', 'Hollis', 'Pemberton', 'Catterall', 'Dunphy', 'Eckersley', 'Fairclough', 'Greenhalgh', 'Horrocks', 'Kilbride', 'Mottram',
+  'Nuttall', 'Openshaw', 'Ramsbottom', 'Sutcliffe', 'Tattersall', 'Unsworth', 'Whittle', 'Akinola', 'Boateng', 'Castellano', 'Novak'];
+
+// ===================== Helpers =====================
+const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
+const rint = (a, b) => Math.floor(rand(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const chance = p => Math.random() < p;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const gauss = () => { let s = 0; for (let i = 0; i < 6; i++) s += Math.random(); return (s - 3) / Math.sqrt(.5); };
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fill = (t, o) => t.replace(/\{(\w)\}/g, (_, k) => o[k] ?? '');
+const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+function money(n) {
+  const s = n < 0 ? '-' : ''; n = Math.abs(n);
+  if (n >= 1e6) return s + '£' + (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'm';
+  if (n >= 1e4) return s + '£' + Math.round(n / 1e3) + 'k';
+  return s + '£' + Math.round(n).toLocaleString('en-GB');
+}
+const roundMoney = v => v < 1e4 ? Math.round(v / 100) * 100 : v < 1e6 ? Math.round(v / 1000) * 1000 : Math.round(v / 10000) * 10000;
+const seasonLabel = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
+
+// ===================== State =====================
+let S = null;
+const P = id => S.players[id];
+const C = id => S.clubs[id];
+const me = () => C(S.user.clubId);
+const pname = p => `${p.first} ${p.last}`;
+
+function blankSt() { return { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: '' }; }
+const clubLevel = c => TIER_BASE[c.tier] + c.off;
+
+function makePlayer(level, pos, age) {
+  age = age ?? rint(18, 33);
+  const ageAdj = age <= 19 ? -8 : age <= 21 ? -5 : age <= 23 ? -2 : age >= 34 ? -4 : age >= 31 ? -1 : 0;
+  const ability = Math.round(clamp(level + gauss() * 5 + ageAdj, 12, 94));
+  let potential = ability;
+  if (age <= 23) potential = Math.round(clamp(ability + rand(0, 6 + (24 - age) * 3), ability, 96));
+  const p = { id: S.nextId++, first: pick(FIRST), last: pick(LAST), pos, age, ability, potential, fitness: 100, morale: rint(55, 80),
+    form: [], know: 10, bias: rand(-1, 1), club: null, listed: false, injured: 0, suspended: 0, apps: 0, goals: 0, unpicked: 0, loanFrom: null, wage: 0 };
+  p.wage = wageDemand(p);
+  S.players[p.id] = p;
+  return p;
+}
+function value(p, ab = p.ability) {
+  let v = 4000 * Math.exp((ab - 38) / 7.5);
+  if (p.age <= 23) v *= 1 + Math.max(0, p.potential - p.ability) / 30;
+  if (p.age >= 30) v *= .7;
+  if (p.age >= 33) v *= .5;
+  return roundMoney(v);
+}
+const wageDemand = p => Math.max(80, Math.round(value(p) / 90 / 10) * 10);
+const levelTier = ab => { for (let t = 0; t < 5; t++) if (ab >= TIER_BASE[t] - 4) return t; return 4; };
+const playerTier = p => p.club != null ? C(p.club).tier : levelTier(p.ability);
+
+function sign(p, club) {
+  if (p.club != null) { const old = C(p.club); old.squad = old.squad.filter(x => x !== p.id); }
+  else S.free = S.free.filter(x => x !== p.id);
+  if (S.user && p.club === S.user.clubId) S.user.lineup = S.user.lineup.filter(x => x.pid !== p.id);
+  p.club = club.id; club.squad.push(p.id); p.listed = false; p.unpicked = 0;
+}
+function toFree(p) {
+  if (p.club != null) { const c = C(p.club); c.squad = c.squad.filter(x => x !== p.id); }
+  if (S.user && p.club === S.user.clubId) S.user.lineup = S.user.lineup.filter(x => x.pid !== p.id);
+  p.club = null; p.listed = false; p.loanFrom = null;
+  if (!S.free.includes(p.id)) S.free.push(p.id);
+}
+function removePlayer(p) {
+  if (p.club != null) { const c = C(p.club); c.squad = c.squad.filter(x => x !== p.id); }
+  S.free = S.free.filter(x => x !== p.id);
+  if (S.user) { S.user.lineup = S.user.lineup.filter(x => x.pid !== p.id); S.user.scouting = S.user.scouting.filter(x => x !== p.id); }
+  delete S.players[p.id];
+}
+function topUp(club) {
+  const need = { GK: 2, DF: 5, MF: 5, FW: 3 };
+  for (const pos of POSS) {
+    let n = club.squad.filter(id => P(id).pos === pos).length;
+    while (n < need[pos]) { sign(makePlayer(clubLevel(club), pos, rint(18, 30)), club); n++; }
+  }
+}
+function trim(club, max = 24) {
+  while (club.squad.length > max) {
+    const worst = club.squad.map(P).filter(p => !p.loanFrom).sort((a, b) => a.ability - b.ability)[0];
+    if (!worst) break; toFree(worst);
+  }
+}
+function addFreeAgents(n) {
+  for (let i = 0; i < n; i++) { const p = makePlayer(TIER_BASE[rint(1, 4)] - 2, pick(POSS), rint(20, 34)); S.free.push(p.id); }
+}
+
+function newWorld() {
+  S = { v: 1, nextId: 1, season: 1996, week: 0, phase: 'preseason', players: {}, clubs: [], fixtures: [], free: [], inbox: [], msgId: 1,
+    po: null, review: null, sacked: null, lastResults: [], finalTables: null, user: null };
+  teamRatingCache.clear();
+  const towns = shuffle([...TOWNS]);
+  const used = new Set();
+  for (let t = 0; t < 5; t++) for (let i = 0; i < 12; i++) {
+    const id = S.clubs.length, town = towns[id];
+    let short = town.slice(0, 3).toUpperCase();
+    if (used.has(short)) short = (town[0] + town.slice(-2)).toUpperCase();
+    used.add(short);
+    const club = { id, name: `${town} ${pick(SUFFIX)}`, short, color: `hsl(${rint(0, 359)} ${rint(50, 78)}% ${rint(34, 48)}%)`, tier: t,
+      off: rand(-5, 5), squad: [], formation: pick(['4-4-2', '4-4-2', '4-4-2', '4-3-3', '4-5-1', '5-3-2', '3-5-2']),
+      style: pick(['Balanced', 'Balanced', 'Balanced', 'Attacking', 'Defensive']), st: blankSt() };
+    S.clubs.push(club);
+    const counts = { GK: 2, DF: 6, MF: 6, FW: 4 };
+    for (const pos of POSS) for (let k = 0; k < counts[pos]; k++) sign(makePlayer(clubLevel(club), pos), club);
+  }
+  addFreeAgents(30);
+  makeFixtures();
+  aiListings();
+}
+
+function roundRobin(ids) {
+  const t = [...ids], n = t.length, rounds = [];
+  for (let r = 0; r < n - 1; r++) {
+    const pairs = [];
+    for (let i = 0; i < n / 2; i++) { const a = t[i], b = t[n - 1 - i]; pairs.push((r + i) % 2 === 0 ? [a, b] : [b, a]); }
+    rounds.push(pairs);
+    t.splice(1, 0, t.pop());
+  }
+  return rounds.concat(rounds.map(rd => rd.map(([h, a]) => [a, h])));
+}
+function makeFixtures() {
+  S.fixtures = [];
+  for (let t = 0; t < 5; t++) S.fixtures[t] = roundRobin(shuffle(S.clubs.filter(c => c.tier === t).map(c => c.id)));
+}
+function aiListings() {
+  for (const c of S.clubs) {
+    if (S.user && c.id === S.user.clubId) continue;
+    const ranked = c.squad.map(P).filter(p => !p.loanFrom).sort((a, b) => b.ability - a.ability);
+    ranked.forEach(p => p.listed = false);
+    const fringe = ranked.slice(11);
+    if (fringe.length && chance(.85)) pick(fringe).listed = true;
+    if (fringe.length && chance(.4)) pick(fringe).listed = true;
+    if (chance(.08)) pick(ranked.slice(0, 11)).listed = true;
+  }
+}
+
+function table(t) {
+  return S.clubs.filter(c => c.tier === t).sort((a, b) =>
+    b.st.pts - a.st.pts || (b.st.gf - b.st.ga) - (a.st.gf - a.st.ga) || b.st.gf - a.st.gf || a.name.localeCompare(b.name));
+}
+const position = c => table(c.tier).indexOf(c) + 1;
+
+// ===================== Knowing your players =====================
+// Every rating is a scout's estimate. The range narrows the better you know the player.
+function estimate(p) {
+  const err = Math.round(2 + (100 - p.know) * .16);
+  const c = Math.round(p.ability + p.bias * err * .6);
+  return { lo: clamp(c - err, 1, 99), hi: clamp(c + err, 1, 99), c, err };
+}
+function ratingHTML(p) {
+  const e = estimate(p);
+  return `<span class="rb"><i style="width:${e.lo}%"></i><b style="left:${e.lo}%;width:${e.hi - e.lo}%"></b></span><span class="rnum">${e.lo === e.hi ? e.c : e.lo + '–' + e.hi}</span>`;
+}
+const knowWord = k => k >= 85 ? 'Knows the player well' : k >= 65 ? 'Good scouting report' : k >= 40 ? 'Some idea' : 'Barely seen';
+function potentialWord(p) {
+  if (p.age >= 31) return 'Past the best years';
+  if (p.know < 55) return p.club === S.user.clubId ? 'Too early to say' : 'Send a scout to find out';
+  const gap = p.potential - p.ability + p.bias * 3;
+  if (p.age > 23 || gap < 3) return 'At or near peak';
+  return gap > 14 ? 'Could become a fine player' : gap > 7 ? 'Should improve' : 'May improve a little';
+}
+function myBestAvg() {
+  const top = me().squad.map(P).map(p => estimate(p).c).sort((a, b) => b - a).slice(0, 11);
+  return top.reduce((s, v) => s + v, 0) / Math.max(1, top.length);
+}
+function opinion(p) {
+  const d = estimate(p).c - myBestAvg();
+  let s = d > 8 ? 'Would be one of our best players.' : d > 2 ? 'Would walk into our team.' : d > -4 ? 'A useful squad player.' : 'Not good enough for us.';
+  if (p.club !== S.user.clubId && p.know < 35) s = `Hard to say without a scout report. From what I've seen: ${s.toLowerCase()}`;
+  return s;
+}
+const moraleWord = m => m >= 80 ? 'Superb' : m >= 60 ? 'Good' : m >= 40 ? 'OK' : m >= 25 ? 'Low' : 'Unhappy';
+const formAvg = p => p.form.length ? (p.form.reduce((s, v) => s + v, 0) / p.form.length).toFixed(1) : '–';
+
+// ===================== Team selection =====================
+function pickXI(club, form, useEst) {
+  const counts = FORMS[form];
+  const val = p => (useEst ? estimate(p).c : p.ability) * (.85 + .15 * p.fitness / 100);
+  const avail = club.squad.map(P).filter(p => !p.injured && !p.suspended).sort((a, b) => val(b) - val(a));
+  const xi = [], used = new Set();
+  for (const pos of POSS) {
+    let need = counts[pos];
+    for (const p of avail) { if (!need) break; if (p.pos === pos && !used.has(p.id)) { xi.push({ pid: p.id, role: pos }); used.add(p.id); need--; } }
+    for (const p of avail) { if (!need) break; if (!used.has(p.id) && (pos === 'GK') === (p.pos === 'GK')) { xi.push({ pid: p.id, role: pos }); used.add(p.id); need--; } }
+    for (const p of avail) { if (!need) break; if (!used.has(p.id)) { xi.push({ pid: p.id, role: pos }); used.add(p.id); need--; } }
+  }
+  return xi;
+}
+const teamRatingCache = new Map();
+function teamRatingFresh(club) {
+  const xi = pickXI(club, '4-4-2', false);
+  return xi.reduce((s, x) => s + P(x.pid).ability, 0) / Math.max(1, xi.length);
+}
+function teamRating(club) {
+  const key = club.id + ':' + club.squad.length + ':' + S.week + ':' + S.season;
+  if (teamRatingCache.has(key)) return teamRatingCache.get(key);
+  const xi = pickXI(club, '4-4-2', false);
+  const r = xi.reduce((s, x) => s + P(x.pid).ability, 0) / Math.max(1, xi.length);
+  teamRatingCache.set(key, r);
+  return r;
+}
+function formationOf(lineup) {
+  const n = r => lineup.filter(x => x.role === r).length;
+  return `${n('DF')}-${n('MF')}-${n('FW')}`;
+}
+function lineupIssues() {
+  const L = S.user.lineup, out = [];
+  if (L.length !== 11) out.push(`You've picked ${L.length} of 11 players.`);
+  const g = L.filter(x => x.role === 'GK').length;
+  if (g === 0) out.push('You need a goalkeeper.');
+  if (g > 1) out.push('Only one goalkeeper can play.');
+  return out;
+}
+function cleanLineup() {
+  const club = me(), dropped = [];
+  S.user.lineup = S.user.lineup.filter(x => {
+    const p = P(x.pid);
+    const ok = p && p.club === club.id && !p.injured && !p.suspended;
+    if (!ok && p && p.club === club.id) dropped.push(p);
+    return ok;
+  });
+  return dropped;
+}
+
+// ===================== The match engine =====================
+const T_GOAL = ['{p} drives it low past {g}. GOAL!', '{p} rises highest and heads it in! GOAL!', '{p} rounds the keeper and rolls it in. GOAL!',
+  'A scramble in the box... {p} pokes it home! GOAL!', '{p} curls one into the top corner from twenty-five yards! GOAL!',
+  '{p} smashes in the rebound. GOAL!', '{p} is clean through... and buries it! GOAL!', '{p} gets on the end of a cross at the far post. GOAL!'];
+const T_SAVE = ['{p} shoots, {g} saves.', "{g} gets down well to stop {p}'s low drive.", '{p} with a header, straight at {g}.',
+  "{g} tips {p}'s effort over the bar.", '{p} forces a fine save from {g}.'];
+const T_POST = ['{p} hits the post!', '{p} crashes one against the bar!', '{p} beats the keeper but not the upright!'];
+const T_MISS = ['{p} blazes it over.', '{p} drags a shot wide.', '{p} heads wide from a corner.', '{p} snatches at it and miscues.',
+  '{p} has a go from distance. Well wide.', '{p} should have done better there. Wide.'];
+const T_YELLOW = ['{p} is booked for a late tackle.', 'Yellow card for {p} after a cynical foul.', '{p} goes into the book for dissent.'];
+const T_RED = ['{p} is sent off! A shocking challenge.', 'Second yellow for {p}. Off!', 'Straight red for {p}!'];
+const T_INJ = ["{p} is down after a heavy challenge and can't carry on.", '{p} pulls up clutching a hamstring.', '{p} goes down awkwardly. That looks bad.'];
+const T_QUIET = ['{t} are knocking it about at the back.', 'A long ball forward from {t}. Too strong.', 'The {t} fans are making plenty of noise.',
+  '{t} win a corner. Cleared.', 'Scrappy spell in midfield.', 'The flag goes up against {t}. Offside.', '{t} are pressing high now.',
+  'Free kick to {t} out on the touchline. Nothing comes of it.', 'The rain is coming down now.'];
+
+function newMatch(hId, aId, opts = {}) {
+  const mk = id => {
+    const c = C(id), isMe = !!S.user && id === S.user.clubId;
+    const xi = isMe ? S.user.lineup.map(x => ({ ...x })) : pickXI(c, c.formation, false);
+    return { club: id, me: isMe, xi, style: isMe ? S.user.style : c.style, subs: 0, goals: 0, shots: 0, on: 0, played: xi.map(x => x.pid),
+      scorers: [], injured: [], reds: [] };
+  };
+  return { sides: [mk(hId), mk(aId)], minute: 0, neutral: !!opts.neutral, kind: opts.kind || 'league', log: [], done: false, pens: null, poss: 0 };
+}
+function sideStrength(side) {
+  let g = 0, d = 0, m = 0, a = 0;
+  for (const { pid, role } of side.xi) {
+    const p = P(pid);
+    let e = p.ability * (.85 + .15 * p.fitness / 100) * (.94 + .12 * p.morale / 100);
+    if (p.form.length) e *= .97 + (formAvg(p) - 6.5) * .02;
+    if (role !== p.pos) e *= (role === 'GK' || p.pos === 'GK') ? .45 : .82;
+    if (role === 'GK') g += e;
+    else if (role === 'DF') d += e;
+    else if (role === 'MF') { m += e; d += .5 * e; a += .4 * e; }
+    else { a += e; m += .25 * e; }
+  }
+  if (!g) g = 15;
+  const s = STYLE_MOD[side.style];
+  return { g, d: d / 6 * s.d, m: m / 4.5, a: a / 3.6 * s.a };
+}
+function bench(M, i) {
+  const side = M.sides[i];
+  return C(side.club).squad.map(P).filter(p => !side.played.includes(p.id) && !p.injured && !p.suspended);
+}
+function makeSub(M, i, offPid, onPid, auto) {
+  const side = M.sides[i], slot = side.xi.find(x => x.pid === offPid);
+  if (!slot || side.subs >= 3) return false;
+  slot.pid = onPid; side.subs++; side.played.push(onPid);
+  M.log.push({ min: M.minute, side: i, cls: 'sub', text: `${auto ? '' : 'Substitution: '}${P(onPid).last} comes on for ${P(offPid).last}.` });
+  return true;
+}
+function weightedPick(items, w) {
+  const tot = items.reduce((s, x) => s + w(x), 0); let r = Math.random() * tot;
+  for (const x of items) { r -= w(x); if (r <= 0) return x; }
+  return items[items.length - 1];
+}
+function shot(M, i, st) {
+  const at = M.sides[i], df = M.sides[1 - i];
+  const ha = (i === 0 && !M.neutral) ? 1.04 : 1;
+  const ratio = st[i].a * ha / (.65 * st[1 - i].d + .35 * st[1 - i].g);
+  const q = clamp(.17 * ratio ** 2.2, .04, .6);
+  const outfield = at.xi.filter(x => x.role !== 'GK');
+  if (!outfield.length) return;
+  const sh = P(weightedPick(outfield, x => ({ FW: 3, MF: 1.3, DF: .35 }[x.role]) * P(x.pid).ability).pid);
+  const gkSlot = df.xi.find(x => x.role === 'GK');
+  const o = { p: sh.last, g: gkSlot ? P(gkSlot.pid).last : 'the stand-in keeper' };
+  at.shots++;
+  const r = Math.random();
+  if (r < q) { at.goals++; at.on++; at.scorers.push({ pid: sh.id, min: M.minute }); M.log.push({ min: M.minute, side: i, cls: 'goal', text: fill(pick(T_GOAL), o) }); }
+  else if (r < q + .3) { at.on++; M.log.push({ min: M.minute, side: i, cls: '', text: fill(pick(T_SAVE), o) }); }
+  else if (r < q + .34) M.log.push({ min: M.minute, side: i, cls: '', text: fill(pick(T_POST), o) });
+  else M.log.push({ min: M.minute, side: i, cls: 'q', text: fill(pick(T_MISS), o) });
+}
+function stepMinute(M) {
+  const before = M.log.length;
+  M.minute++;
+  const st = M.sides.map(sideStrength);
+  const m0 = st[0].m * (M.neutral ? 1 : 1.04), m1 = st[1].m;
+  const p0 = m0 ** 3 / (m0 ** 3 + m1 ** 3);
+  M.poss += p0;
+  for (let i = 0; i < 2; i++) {
+    const side = M.sides[i];
+    if (chance(.075 * 2 * (i === 0 ? p0 : 1 - p0) * STYLE_MOD[side.style].tempo)) shot(M, i, st);
+    if (chance(.016) && side.xi.length) M.log.push({ min: M.minute, side: i, cls: 'card', text: fill(pick(T_YELLOW), { p: P(pick(side.xi).pid).last }) });
+    if (chance(.0006) && side.xi.length > 7) {
+      const x = pick(side.xi.filter(x => x.role !== 'GK'));
+      if (x) { side.xi = side.xi.filter(y => y !== x); side.reds.push(x.pid); M.log.push({ min: M.minute, side: i, cls: 'red', text: fill(pick(T_RED), { p: P(x.pid).last }) }); }
+    }
+    if (chance(.0012) && side.xi.length) {
+      const x = pick(side.xi), p = P(x.pid);
+      side.injured.push(p.id);
+      M.log.push({ min: M.minute, side: i, cls: 'red', text: fill(pick(T_INJ), { p: p.last }) });
+      const b = bench(M, i).sort((a, c) => (c.pos === x.role) - (a.pos === x.role) || (side.me ? estimate(c).c - estimate(a).c : c.ability - a.ability));
+      if (side.subs < 3 && b.length) makeSub(M, i, p.id, b[0].id, true);
+      else { side.xi = side.xi.filter(y => y !== x); M.log.push({ min: M.minute, side: i, cls: 'sub', text: `No substitutes left. ${C(side.club).name} are down to ${side.xi.length}.` }); }
+    }
+  }
+  if (M.log.length === before && chance(.05)) M.log.push({ min: M.minute, side: -1, cls: 'q', text: fill(pick(T_QUIET), { t: C(pick(M.sides).club).name }) });
+  if (M.minute === 45) M.log.push({ min: 45, side: -1, cls: 'ht', text: `HALF-TIME  ${M.sides[0].goals} - ${M.sides[1].goals}` });
+  if (M.minute >= 90) {
+    M.done = true;
+    if (M.kind === 'po' && M.sides[0].goals === M.sides[1].goals) penalties(M, st);
+    M.log.push({ min: 90, side: -1, cls: 'ht', text: `FULL-TIME  ${M.sides[0].goals} - ${M.sides[1].goals}` });
+    if (M.pens) M.log.push({ min: 90, side: -1, cls: 'ht', text: `${C(M.sides[M.pens.w].club).name.toUpperCase()} WIN ${Math.max(...M.pens.s)}-${Math.min(...M.pens.s)} ON PENALTIES` });
+  }
+  return M.log.slice(before);
+}
+function penalties(M, st) {
+  const k = s => s.g + s.a;
+  const w = chance(.5 + clamp((k(st[0]) - k(st[1])) / 200, -.15, .15)) ? 0 : 1;
+  const ws = rint(3, 5), ls = rint(Math.max(1, ws - 3), ws - 1);
+  M.pens = { w, s: w === 0 ? [ws, ls] : [ls, ws] };
+}
+function simulate(M) { while (!M.done) stepMinute(M); return M; }
+const winnerSide = M => M.sides[0].goals > M.sides[1].goals ? 0 : M.sides[1].goals > M.sides[0].goals ? 1 : M.pens ? M.pens.w : -1;
+
+function applyMatch(M) {
+  M.sides.forEach((side, i) => {
+    const opp = M.sides[1 - i], club = C(side.club);
+    const res = side.goals > opp.goals ? 'W' : side.goals < opp.goals ? 'L' : 'D';
+    if (M.kind === 'league') {
+      const s = club.st;
+      s.p++; s.gf += side.goals; s.ga += opp.goals;
+      if (res === 'W') { s.w++; s.pts += 3; } else if (res === 'D') { s.d++; s.pts++; } else s.l++;
+      s.form = (s.form + res).slice(-5);
+    }
+    for (const pid of side.played) {
+      const p = P(pid); if (!p) continue;
+      p.apps++; p.unpicked = 0;
+      p.fitness = clamp(p.fitness - rint(9, 15), 30, 100);
+      const goals = side.scorers.filter(s => s.pid === pid).length;
+      let r = 6.3 + rand(-.6, .9) + (res === 'W' ? .4 : res === 'L' ? -.4 : 0) + goals * .8;
+      if (p.pos === 'GK') r += opp.goals === 0 ? .6 : -(opp.goals - 1) * .3;
+      p.form.push(Math.round(clamp(r, 4, 10) * 10) / 10);
+      if (p.form.length > 5) p.form.shift();
+    }
+    for (const s of side.scorers) { const p = P(s.pid); if (p) p.goals++; }
+    for (const pid of side.injured) { const p = P(pid); if (p) p.injured = (chance(.15) ? rint(5, 10) : rint(1, 4)) + 1; }
+    for (const pid of side.reds) { const p = P(pid); if (p) p.suspended = 2; }
+    for (const pid of club.squad) { const p = P(pid); p.morale = clamp(p.morale + (res === 'W' ? 4 : res === 'L' ? -4 : 0), 5, 100); }
+  });
+}
+
+// ===================== Inbox =====================
+function mail(title, body, extra = {}) {
+  S.inbox.unshift({ id: S.msgId++, when: S.phase === 'season' ? `Wk ${S.week}` : S.phase === 'preseason' ? 'Pre' : S.phase === 'playoffs' ? 'PO' : 'Summer', title, body, read: false, ...extra });
+  S.inbox = S.inbox.slice(0, 60);
+}
+
+// ===================== The board =====================
+function setTarget() {
+  const club = me(), t = club.tier;
+  const ranked = S.clubs.filter(c => c.tier === t).sort((a, b) => teamRating(b) - teamRating(a));
+  const r = ranked.indexOf(club) + 1;
+  let pos, text;
+  if (t === 0) [pos, text] = r <= 2 ? [2, 'Challenge for the title: finish in the top two'] : r <= 6 ? [6, 'Finish in the top half'] : [9, 'Stay in the Premier Division'];
+  else if (t === 4) [pos, text] = r <= 2 ? [2, 'Win promotion: finish in the top two'] : r <= 6 ? [6, 'Reach the play-offs'] : [10, 'Stay out of the bottom two'];
+  else [pos, text] = r <= 2 ? [2, 'Win automatic promotion'] : r <= 6 ? [6, 'Reach the play-offs'] : r <= 9 ? [8, 'Finish 8th or better'] : [9, 'Avoid relegation'];
+  S.user.target = { pos, text, rank: r };
+}
+const confWord = c => c >= 75 ? 'Delighted' : c >= 55 ? 'Satisfied' : c >= 40 ? 'Concerned' : c >= 25 ? 'Unhappy' : 'Your job is on the line';
+const confColor = c => c >= 55 ? 'var(--green)' : c >= 40 ? 'var(--yellow)' : 'var(--red)';
+function setConf(v) {
+  const u = S.user;
+  u.conf = clamp(v, 0, 100);
+  if (u.conf < 40 && u.warned < 1) { u.warned = 1; mail('The chairman has expressed concern', "The board are worried about results. They expect to see an improvement, and quickly."); }
+  if (u.conf < 25 && u.warned < 2) { u.warned = 2; mail('Final warning from the board', "The chairman has made it clear: things must turn around in the next few games, or you'll be looking for a new job."); }
+  if (u.conf > 52) u.warned = 0;
+}
+function boardAfterMatch(M) {
+  const u = S.user, i = M.sides[0].club === u.clubId ? 0 : 1, my = M.sides[i], op = M.sides[1 - i];
+  const pts = my.goals > op.goals ? 3 : my.goals === op.goals ? 1 : 0;
+  const diff = teamRating(C(my.club)) - teamRating(C(op.club)) + (i === 0 ? 2 : -2);
+  const exp = clamp(1.35 + diff * .09, .3, 2.6);
+  let d = (pts - exp) * 2.6;
+  if (S.week >= 6) { const pos = position(me()); if (pos > u.target.pos + 2) d -= 1.5; else if (pos <= u.target.pos) d += .7; }
+  if (u.bank < 0) d -= 1.5;
+  setConf(u.conf + d);
+}
+const repTier = () => { const r = S.user.rep; return r >= 85 ? 0 : r >= 65 ? 1 : r >= 45 ? 2 : r >= 25 ? 3 : 4; };
+
+function sackManager(reason) {
+  const u = S.user, club = me();
+  const last = u.history[u.history.length - 1];
+  if (S.phase === 'summer' && last && last.season === seasonLabel(S.season) && last.club === club.name) last.note = last.note ? `${last.note}, then sacked` : 'Sacked';
+  else u.history.push({ season: seasonLabel(S.season), club: club.name, tier: club.tier, pos: position(club), note: 'Sacked' });
+  u.rep = clamp(u.rep - 8, 0, 100);
+  u.prevClub = club.id;
+  S.sacked = { reason, offers: genOffers(club.tier, true) };
+  mail('You have been sacked', reason);
+}
+function genOffers(curTier, sacked) {
+  const u = S.user, rt = repTier();
+  const tiers = sacked ? [...new Set([Math.max(rt, curTier), Math.min(4, curTier + 1)])] : [curTier - 1];
+  const pool = S.clubs.filter(c => tiers.includes(c.tier) && c.id !== u.clubId && c.id !== u.prevClub);
+  const weak = [];
+  for (const t of tiers) weak.push(...pool.filter(c => c.tier === t).sort((a, b) => teamRating(a) - teamRating(b)).slice(0, 7));
+  return shuffle(weak).slice(0, sacked ? 3 : rint(1, 2)).map(c => c.id);
+}
+function takeJob(cid) {
+  const u = S.user, club = C(cid);
+  if (!S.sacked && u.clubId != null && S.phase === 'summer') u.history.push({ season: seasonLabel(S.season), club: me().name, tier: me().tier, pos: null, note: `Left for ${club.name}` });
+  u.clubId = cid; u.conf = 60; u.warned = 0; u.scouting = [];
+  for (const pid of club.squad) { const p = P(pid); p.know = Math.max(p.know, 35); p.listed = false; }
+  u.lineup = pickXI(club, '4-4-2', true);
+  u.bank = START_BANK[club.tier]; u.tb = TB_BASE[club.tier]; u.wb = Math.max(Math.round(wageBill() * 1.15), WB_BASE[club.tier]);
+  setTarget();
+  S.sacked = null;
+  if (S.review) S.review.offers = [];
+  mail(`Welcome to ${club.name}`, `The board want you to ${u.target.text.charAt(0).toLowerCase() + u.target.text.slice(1)}. You don't know this squad yet, so your staff's ratings are rough for now. They'll sharpen as you work with the players.`);
+  closeModal(); tab = 'home'; save(); render();
+}
+
+// ===================== Money =====================
+const wageBill = () => me().squad.reduce((s, id) => s + P(id).wage, 0);
+const windowOpen = () => S.phase === 'preseason' || (S.phase === 'season' && S.week <= WINDOW_LAST);
+function askingPrice(p) {
+  const c = C(p.club), rank = c.squad.map(P).sort((a, b) => b.ability - a.ability).indexOf(p) + 1;
+  return roundMoney(value(p) * (p.listed ? .9 : rank <= 11 ? 1.6 : 1.25));
+}
+function demand(p) {
+  const drop = Math.max(0, me().tier - playerTier(p));
+  return Math.max(80, Math.round(wageDemand(p) * (1 + .15 * drop) / 10) * 10);
+}
+function willJoin(p) {
+  const t = me().tier;
+  if (p.ability > TIER_BASE[t] + 16) return false;
+  if (t - playerTier(p) >= 2 && p.age < 31) return false;
+  return true;
+}
+
+// ===================== The week =====================
+function userFixture() {
+  if (S.phase === 'season') {
+    const rd = S.fixtures[me().tier][S.week - 1];
+    return rd && rd.find(f => f.includes(S.user.clubId));
+  }
+  if (S.phase === 'playoffs') {
+    const ties = S.po.ties[me().tier];
+    return ties && ties.find(f => f.includes(S.user.clubId));
+  }
+  return null;
+}
+function finishWeek(userM) {
+  const w = S.week;
+  S.lastResults = [];
+  for (let t = 0; t < 5; t++) {
+    S.lastResults[t] = S.fixtures[t][w - 1].map(([h, a]) => {
+      const M = userM && userM.sides[0].club === h && userM.sides[1].club === a ? userM : simulate(newMatch(h, a));
+      applyMatch(M);
+      return { h, a, hg: M.sides[0].goals, ag: M.sides[1].goals };
+    });
+  }
+  weekly(userM);
+  S.week++;
+  if (!S.sacked && S.week > WEEKS) startPlayoffs();
+  if (S.sacked && S.week > WEEKS) S.pendingPlayoffs = true;
+  save();
+}
+function recordLastMatch(M) {
+  const i = M.sides[0].club === S.user.clubId ? 0 : 1, my = M.sides[i], op = M.sides[1 - i];
+  const sc = s => s.scorers.map(x => `${P(x.pid)?.last ?? '?'} ${x.min}'`).join(', ');
+  S.user.last = { home: i === 0, opp: op.club, gf: my.goals, ga: op.goals, mine: sc(my), theirs: sc(op), pens: M.pens ? (M.pens.w === i ? 'won' : 'lost') + ' on penalties' : '' };
+  for (const pid of op.played) { const p = P(pid); if (p) p.know = Math.max(p.know, Math.min(55, p.know + 10)); }
+}
+function recover() {
+  for (const id in S.players) {
+    const p = S.players[id];
+    if (p.injured > 0) p.injured--;
+    if (p.suspended > 0) p.suspended--;
+    p.fitness = Math.min(100, p.fitness + 11);
+  }
+}
+function weekly(userM) {
+  const u = S.user, club = me();
+  recover();
+  // Money
+  const home = userM && userM.sides[0].club === club.id;
+  const pos = position(club);
+  const gate = home ? Math.round(GATE[club.tier] * (.8 + .4 * (13 - pos) / 12) * rand(.9, 1.1)) : 0;
+  const income = gate * TICKET[club.tier] + TV[club.tier];
+  const wages = wageBill();
+  u.bank += income - wages - COSTS[club.tier];
+  u.lastWeek = { crowd: gate, gateMoney: gate * TICKET[club.tier], tv: TV[club.tier], wages, costs: COSTS[club.tier] };
+  // Staff get to know the squad
+  for (const pid of club.squad) { const p = P(pid); p.know = Math.min(95, p.know + 5); }
+  // Injuries from the match, and anyone who can't play
+  if (userM) {
+    const mine = userM.sides.find(s => s.me);
+    for (const pid of mine.injured) { const p = P(pid); if (p && p.injured > 0) mail(`${pname(p)} is injured`, `The physio says ${p.last} will be out for ${p.injured} week${p.injured > 1 ? 's' : ''}.`); }
+    for (const pid of mine.reds) { const p = P(pid); if (p) mail(`${pname(p)} is suspended`, `${p.last} will miss the next match after the red card.`); }
+    for (const pid of club.squad) {
+      const p = P(pid);
+      if (mine.played.includes(pid)) continue;
+      p.unpicked++;
+      if (p.unpicked >= 4) p.morale = clamp(p.morale - 3, 5, 100);
+      if (p.unpicked === 6 && estimate(p).c >= myBestAvg() - 6) mail(`${pname(p)} wants to talk`, `${p.last} is unhappy about the lack of first-team football and wants to know where things stand.`);
+    }
+    boardAfterMatch(userM);
+  }
+  cleanLineup();
+  // Scout reports
+  for (const pid of u.scouting) {
+    const p = P(pid); if (!p) continue;
+    p.know = Math.max(p.know, 75);
+    mail(`Scout report: ${pname(p)}`, `${POS_NAME[p.pos]}, ${p.age}, ${p.club != null ? C(p.club).name : 'free agent'}. Rated ${estimate(p).lo}–${estimate(p).hi}. ${potentialWord(p)}. "${opinion(p)}"`, { pid });
+  }
+  u.scouting = [];
+  // Transfer business
+  if (windowOpen()) aiBids();
+  if (S.week === WINDOW_LAST - 2) mail('Transfer deadline approaching', `The transfer window closes after week ${WINDOW_LAST}. Any deals must be done before then.`);
+  if (S.week === WINDOW_LAST) mail('The transfer window has closed', 'No more signings until pre-season. You go with what you have.');
+  for (const m of S.inbox) if (m.kind === 'bid' && !m.done && (S.week >= m.expires || !windowOpen())) { m.done = true; m.result = 'The offer lapsed.'; }
+  // The board
+  if (S.phase === 'season' && S.week >= 4 && u.conf <= 10) sackManager(`After a run of poor results, the board of ${club.name} have decided to make a change. You have been relieved of your duties.`);
+}
+function aiBids() {
+  const club = me(), mine = club.squad.map(P).filter(p => !p.loanFrom);
+  if (mine.length <= MIN_SQUAD) return;
+  const listed = mine.filter(p => p.listed);
+  let target = null;
+  if (listed.length && chance(.35)) target = pick(listed);
+  else if (chance(.1)) target = mine.sort((a, b) => b.ability - a.ability)[rint(0, 2)];
+  if (!target || S.inbox.some(m => m.kind === 'bid' && !m.done && m.pid === target.id)) return;
+  const bidders = S.clubs.filter(c => c.id !== club.id && c.tier <= club.tier && teamRating(c) < target.ability + 4);
+  if (!bidders.length) return;
+  const from = pick(bidders);
+  const fee = roundMoney(value(target) * (target.listed ? rand(.7, 1) : rand(.9, 1.3)));
+  mail(`Offer for ${pname(target)}`, `${from.name} (${DIVS[from.tier]}) have bid ${money(fee)} for ${target.last}.${target.listed ? '' : ` ${target.last} isn't even on the transfer list.`}`,
+    { kind: 'bid', pid: target.id, from: from.id, fee, expires: S.week + 2 });
+}
+function acceptBid(mid) {
+  const m = S.inbox.find(x => x.id === mid), p = P(m.pid), u = S.user;
+  if (!p || p.club !== u.clubId || m.done) { m.done = true; m.result = 'The deal fell through.'; return render(); }
+  if (!windowOpen()) return toast('The transfer window is closed.');
+  if (me().squad.length <= MIN_SQUAD) return toast(`You need at least ${MIN_SQUAD} players.`);
+  const to = C(m.from);
+  sign(p, to); p.know = Math.min(p.know, 60); trim(to);
+  u.bank += m.fee; u.tb += Math.round(m.fee * .5);
+  m.done = true; m.result = `Sold to ${to.name} for ${money(m.fee)}. Half the fee goes into your transfer budget.`;
+  save(); render();
+}
+function rejectBid(mid) { const m = S.inbox.find(x => x.id === mid); m.done = true; m.result = 'You turned the offer down.'; save(); render(); }
+
+// ===================== Play-offs and the end of the season =====================
+function startPlayoffs() {
+  S.phase = 'playoffs';
+  S.po = { round: 1, ties: {}, winners: {}, results: {} };
+  for (let t = 1; t < 5; t++) { const tb = table(t); S.po.ties[t] = [[tb[2].id, tb[5].id], [tb[3].id, tb[4].id]]; }
+  const pos = position(me());
+  if (me().tier > 0 && pos >= 3 && pos <= 6) mail('Into the play-offs!', `You finished ${ord(pos)}. Two more wins and you're promoted.`);
+}
+function playPoRound(userM) {
+  const r = S.po.round, out = {};
+  for (let t = 1; t < 5; t++) {
+    out[t] = []; const next = [];
+    for (const [h, a] of S.po.ties[t]) {
+      const M = userM && userM.sides[0].club === h && userM.sides[1].club === a ? userM : simulate(newMatch(h, a, { neutral: r === 2, kind: 'po' }));
+      applyMatch(M);
+      const w = M.sides[winnerSide(M)].club;
+      next.push(w);
+      out[t].push({ h, a, hg: M.sides[0].goals, ag: M.sides[1].goals, pens: M.pens ? `${Math.max(...M.pens.s)}-${Math.min(...M.pens.s)} pens` : '', w });
+    }
+    if (r === 1) S.po.ties[t] = [[next[0], next[1]]]; else S.po.winners[t] = next[0];
+  }
+  S.po.results[r] = out;
+  recover();
+  cleanLineup();
+  if (r === 1) S.po.round = 2; else endSeason();
+  save();
+}
+function endSeason() {
+  const u = S.user, club = me(), t = club.tier, pos = position(club);
+  const tables = []; for (let k = 0; k < 5; k++) tables[k] = table(k);
+  S.finalTables = tables.map(tb => tb.map(c => ({ id: c.id, st: { ...c.st } })));
+  const up = [], down = [];
+  for (let k = 1; k < 5; k++) up.push(tables[k][0].id, tables[k][1].id, S.po.winners[k]);
+  for (let k = 0; k < 4; k++) down.push(...tables[k].slice(9).map(c => c.id));
+  const promoted = up.includes(club.id), relegated = down.includes(club.id), champs = tables[t][0] === club;
+  const poWin = S.po.winners[t] === club.id;
+  const met = promoted || pos <= u.target.pos;
+  // The board's verdict
+  let d = met ? (promoted ? 30 : 20) : (pos - u.target.pos > 3 ? -35 : -25);
+  if (relegated) d = -40;
+  setConf(u.conf + d);
+  u.rep = clamp(u.rep + (promoted ? 15 : 0) + (champs ? 8 : 0) + (met ? 6 : -6) + (relegated ? -12 : 0) + (t === 0 && champs ? 10 : 0), 0, 100);
+  const prize = (13 - pos) * PRIZE[t];
+  u.bank += prize;
+  const label = seasonLabel(S.season);
+  const note = champs ? (t === 0 ? 'League champions!' : 'Champions, promoted') : poWin ? 'Play-off winners, promoted' : promoted ? 'Promoted' : relegated ? 'Relegated' : '';
+  u.history.push({ season: label, club: club.name, tier: t, pos, note });
+  if (champs) u.trophies.push(`${DIVS[t]} champions ${label}`);
+  if (poWin) u.trophies.push(`${DIVS[t]} play-off winners ${label}`);
+  S.review = { label, tier: t, nextTier: null, pos, promoted, relegated, champs, poWin, met, target: u.target.text, prize, conf: u.conf, retired: [], youth: [], offers: [], verdict: '' };
+  S.review.verdict = relegated ? 'The board are furious about relegation.'
+    : met ? (promoted ? 'The chairman is overjoyed. The whole town is celebrating.' : 'The board are pleased: you hit your target.')
+    : 'The board are disappointed. You missed the target they set.';
+  // Clubs move between divisions
+  for (const id of up) C(id).tier--;
+  for (const id of down) C(id).tier++;
+  S.review.nextTier = club.tier;
+  // Loans end, players age
+  for (const id in S.players) {
+    const p = S.players[id];
+    if (p.loanFrom != null) { const parent = C(p.loanFrom), wasMine = p.club === u.clubId; p.loanFrom = null; sign(p, parent); if (wasMine) mail(`${pname(p)} returns to ${parent.name}`, 'The loan has ended.'); }
+  }
+  for (const id of Object.keys(S.players)) {
+    const p = S.players[id];
+    p.age++;
+    let dlt = p.age <= 21 ? rand(0, 5) : p.age <= 24 ? rand(0, 3) : p.age <= 29 ? rand(-1.5, 1) : p.age <= 32 ? rand(-3, 0) : rand(-5, -1);
+    if (dlt > 0 && p.potential <= p.ability) dlt *= .2;
+    if (p.age <= 23 && p.apps >= 10) dlt += 1;
+    let ab = p.ability + dlt;
+    if (dlt > 0) ab = Math.min(ab, Math.max(p.potential, p.ability));
+    p.ability = Math.round(clamp(ab, 10, 97));
+    p.apps = 0; p.goals = 0; p.form = []; p.unpicked = 0; p.fitness = 100; p.injured = 0; p.suspended = 0;
+    if (p.club !== u.clubId) p.know = Math.round(p.know * .85);
+    if ((p.age >= 35 && chance(.5)) || p.age >= 37) {
+      if (p.club === u.clubId) S.review.retired.push(pname(p));
+      removePlayer(p);
+    }
+  }
+  // Other clubs freshen up their squads
+  for (const c of S.clubs) {
+    if (c.id === u.clubId) continue;
+    const worst = c.squad.map(P).sort((a, b) => a.ability - b.ability).slice(0, 3);
+    worst.forEach(p => p.ability >= TIER_BASE[4] - 4 ? toFree(p) : removePlayer(p));
+    for (const pos of shuffle([...POSS]).slice(0, 3)) sign(makePlayer(clubLevel(c), pos, rint(19, 28)), c);
+    if (c.squad.length < 20) sign(makePlayer(clubLevel(c) - 10, pick(POSS), rint(16, 18)), c);
+    // Keep each division at its level: stars leave clubs that have outgrown it, weak clubs strengthen
+    for (let k = 0; k < 3; k++) {
+      const gap = teamRatingFresh(c) - (clubLevel(c) + 1);
+      if (gap > 2) { const best = c.squad.map(P).sort((a, b) => b.ability - a.ability)[rint(0, 2)]; removePlayer(best); sign(makePlayer(clubLevel(c), best.pos, rint(20, 27)), c); }
+      else if (gap < -3) sign(makePlayer(clubLevel(c) + 3, pick(POSS), rint(22, 28)), c);
+    }
+    topUp(c); trim(c, 20);
+  }
+  // Youth intake
+  for (let i = 0; i < 2; i++) {
+    const p = makePlayer(TIER_BASE[me().tier] - 10, pick(POSS), rint(16, 17));
+    p.potential = Math.min(96, p.ability + rint(5, 35)); p.know = 30;
+    sign(p, me());
+    S.review.youth.push(`${pname(p)} (${p.pos})${p.potential > TIER_BASE[me().tier] + 8 ? ': the youth coach is excited about this one' : ''}`);
+  }
+  // Free agents: drop the old and the poor, add new faces
+  S.free.map(P).filter(p => p.age >= 34 || chance(.3)).forEach(removePlayer);
+  S.free.map(P).sort((a, b) => b.ability - a.ability).slice(40).forEach(removePlayer);
+  addFreeAgents(Math.max(0, 30 - S.free.length));
+  // The board decide your fate
+  S.phase = 'summer';
+  if (!met && u.conf < 35) sackManager(`${S.review.verdict} After a season that fell short, they have decided you are not the right person to take ${club.name} forward.`);
+  else if (repTier() < me().tier && chance(.65)) S.review.offers = genOffers(me().tier, false);
+}
+function newSeason() {
+  const u = S.user;
+  S.season++; S.week = 0; S.phase = 'preseason'; S.po = null; S.review = null; S.finalTables = null; S.lastResults = [];
+  for (const c of S.clubs) c.st = blankSt();
+  makeFixtures(); aiListings();
+  const club = me();
+  u.tb = Math.round(TB_BASE[club.tier] + Math.max(0, u.bank) * .3);
+  u.wb = Math.max(Math.round(wageBill() * 1.2), WB_BASE[club.tier]);
+  u.conf = Math.max(u.conf, 50); u.warned = 0;
+  setTarget();
+  cleanLineup();
+  if (u.lineup.length < 11) u.lineup = pickXI(club, '4-4-2', true);
+  mail(`${seasonLabel(S.season)}: the board's target`, `${u.target.text}. You have a transfer budget of ${money(u.tb)} and a wage budget of ${money(u.wb)} a week.`);
+  save();
+}
+
+// ===================== Player actions =====================
+function scout(pid) {
+  const u = S.user;
+  if (u.scouting.includes(pid)) return;
+  if (u.scouting.length >= MAX_SCOUTS) return toast(`Your scouts are all busy. They'll report back next week.`);
+  u.scouting.push(pid); save(); toast(`Scout sent. Report next week.`); openPlayer(pid); render();
+}
+function answer(html) { const el = document.getElementById('answer'); if (el) el.innerHTML = html; }
+function makeBid(pid) {
+  const p = P(pid), u = S.user, club = C(p.club);
+  const fee = Math.max(0, Math.round(+document.getElementById('fee').value || 0));
+  if (!windowOpen()) return answer('The transfer window is closed.');
+  if (me().squad.length >= MAX_SQUAD) return answer(`Your squad is full (${MAX_SQUAD}). Sell or release someone first.`);
+  if (fee > u.tb) return answer(`That's more than your transfer budget of ${money(u.tb)}.`);
+  if (!willJoin(p)) return answer(`${p.last} isn't interested in playing in the ${DIVS[me().tier]}.`);
+  const wage = demand(p);
+  if (wageBill() + wage > u.wb) return answer(`${p.last} wants ${money(wage)} a week. That would take you over your wage budget of ${money(u.wb)}.`);
+  const ask = askingPrice(p);
+  if (fee >= ask) {
+    sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40);
+    u.tb -= fee; u.bank -= fee; topUp(club);
+    mail(`${pname(p)} signs`, `${p.last} joins from ${club.name} for ${money(fee)}, on ${money(wage)} a week.`);
+    save(); render(); openPlayer(pid);
+    return answer(`<b class="good">Deal done!</b> ${p.last} signs for ${money(fee)} on ${money(wage)} a week.`);
+  }
+  if (fee >= ask * .7) return answer(`${club.name} turn it down, but they'd take <b>${money(ask)}</b>.`);
+  answer(`${club.name} laugh off the offer.`);
+}
+function signFree(pid) {
+  const p = P(pid), u = S.user;
+  if (!windowOpen()) return answer('The transfer window is closed.');
+  if (me().squad.length >= MAX_SQUAD) return answer(`Your squad is full (${MAX_SQUAD}).`);
+  if (!willJoin(p)) return answer(`${p.last} is holding out for a bigger club.`);
+  const wage = demand(p);
+  if (wageBill() + wage > u.wb) return answer(`${p.last} wants ${money(wage)} a week. That would take you over your wage budget of ${money(u.wb)}.`);
+  sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40);
+  mail(`${pname(p)} signs`, `${p.last} joins on a free transfer, on ${money(wage)} a week.`);
+  save(); render(); openPlayer(pid);
+  answer(`<b class="good">Signed!</b> ${p.last} joins on ${money(wage)} a week.`);
+}
+function askLoan(pid) {
+  const p = P(pid), u = S.user, club = C(p.club);
+  if (!windowOpen()) return answer('The transfer window is closed.');
+  if (me().squad.length >= MAX_SQUAD) return answer(`Your squad is full (${MAX_SQUAD}).`);
+  if (me().squad.filter(id => P(id).loanFrom != null).length >= MAX_LOANS) return answer(`You can only have ${MAX_LOANS} loan players at a time.`);
+  if (club.tier > me().tier) return answer(`${club.name} want their players playing at a higher level than yours.`);
+  const rank = club.squad.map(P).sort((a, b) => b.ability - a.ability).indexOf(p) + 1;
+  if (rank <= 13 && p.age > 21) return answer(`${club.name} say ${p.last} is part of their plans. Not available on loan.`);
+  if (wageBill() + p.wage > u.wb) return answer(`You'd have to cover ${money(p.wage)} a week in wages, which takes you over budget.`);
+  p.loanFrom = club.id; sign(p, me()); p.know = Math.max(p.know, 40);
+  mail(`${pname(p)} arrives on loan`, `${p.last} joins from ${club.name} until the end of the season. You pay the wages: ${money(p.wage)} a week.`);
+  save(); render(); openPlayer(pid);
+  answer(`<b class="good">Loan agreed.</b> ${p.last} is yours until the summer.`);
+}
+function toggleList(pid) { const p = P(pid); p.listed = !p.listed; save(); render(); openPlayer(pid); }
+function releasePlayer(pid) {
+  const p = P(pid), cost = p.wage * 8;
+  if (me().squad.length <= MIN_SQUAD) return toast(`You need at least ${MIN_SQUAD} players.`);
+  if (!confirm(`Release ${pname(p)}? Paying up the contract costs ${money(cost)}.`)) return;
+  S.user.bank -= cost; toFree(p); p.know = Math.min(p.know, 60);
+  mail(`${pname(p)} released`, `${p.last} has left the club. The pay-off cost ${money(cost)}.`);
+  closeModal(); save(); render();
+}
+
+// ===================== Driving the game =====================
+let tab = 'home', view = 'start', leagueTier = null, tf = { src: 'list', pos: 'All', real: 'yes' }, MM = null, timer = null, speed = 1, pickClub = null;
+
+function playNext() {
+  if (S.phase === 'preseason') {
+    S.phase = 'season'; S.week = 1;
+    mail('The season starts', `${WEEKS} league games. The top two go up automatically, and 3rd to 6th play off for the last promotion place.`);
+    save(); return render();
+  }
+  if (S.phase === 'summer') { newSeason(); return render(); }
+  if (S.phase === 'playoffs' && !userFixture()) { playPoRound(null); return render(); }
+  const iss = lineupIssues();
+  if (iss.length) return openModal(`<h2>Team selection</h2><p>${iss.join(' ')}</p><div class="row"><button class="btn go" onclick="autoPick();closeModal();playNext()">Let the assistant pick and play</button><button class="btn" onclick="closeModal();go('squad')">Pick the team myself</button></div>`);
+  const [h, a] = userFixture();
+  MM = newMatch(h, a, S.phase === 'playoffs' ? { kind: 'po', neutral: S.po.round === 2 } : {});
+  view = 'match'; MM.paused = false; window.scrollTo(0, 0); render(); runMatch();
+}
+function runMatch() {
+  clearInterval(timer);
+  if (!MM || MM.paused || MM.done) return;
+  timer = setInterval(() => {
+    stepMinute(MM);
+    if (MM.minute === 45 && !MM.done) { MM.paused = true; MM.half = true; }
+    if (MM.paused || MM.done) clearInterval(timer);
+    render();
+  }, speed === 1 ? 420 : 100);
+}
+function skipMatch() { clearInterval(timer); while (!MM.done) stepMinute(MM); MM.paused = false; MM.half = false; render(); }
+function setSpeed(s) { speed = s; if (MM && !MM.paused) runMatch(); render(); }
+function pauseMatch() { MM.paused = !MM.paused; MM.half = false; if (!MM.paused) runMatch(); else clearInterval(timer); render(); }
+function matchStyle(s) { MM.sides.find(x => x.me).style = s; S.user.style = s; render(); }
+function matchSub() {
+  const i = MM.sides.findIndex(x => x.me), off = +document.getElementById('subOff').value, on = +document.getElementById('subOn').value;
+  if (!off || !on) return;
+  makeSub(MM, i, off, on, false); render();
+}
+function endMatch() {
+  clearInterval(timer);
+  recordLastMatch(MM);
+  if (MM.kind === 'po') playPoRound(MM); else finishWeek(MM);
+  MM = null; view = 'main'; tab = 'home'; window.scrollTo(0, 0); render();
+}
+function autoPick(form) {
+  form = form || document.getElementById('formPick')?.value || S.user.form || '4-4-2';
+  S.user.form = form;
+  S.user.lineup = pickXI(me(), form, true); save(); render();
+}
+function setRole(pid, role) {
+  const L = S.user.lineup;
+  const i = L.findIndex(x => x.pid === pid);
+  if (role === '') { if (i >= 0) L.splice(i, 1); }
+  else if (i >= 0) L[i].role = role;
+  else {
+    const p = P(pid);
+    if (p.injured || p.suspended) { toast(`${p.last} isn't available.`); return render(); }
+    if (L.length >= 11) { toast('You already have 11. Drop someone first.'); return render(); }
+    L.push({ pid, role });
+  }
+  save(); render();
+}
+function setStyle(s) { S.user.style = s; save(); render(); }
+function go(t) { tab = t; window.scrollTo(0, 0); render(); }
+function readAll() { S.inbox.forEach(m => m.read = true); }
+function continueAfterSack() {
+  if (S.pendingPlayoffs) { S.pendingPlayoffs = false; startPlayoffs(); }
+}
+
+// ===================== Saving =====================
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } }
+function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 1 && s.user ? s : null; } catch (e) { return null; } }
+
+// ===================== Views =====================
+const badge = (c, sm) => `<span class="badge${sm ? ' sm' : ''}" style="background:${c.color}">${sm ? c.short.slice(0, 3) : c.short}</span>`;
+const clubLink = c => `<a href="#" onclick="openClub(${c.id});return false" style="color:inherit;text-decoration:none">${badge(c, true)}${esc(c.name)}</a>`;
+
+function barHTML() {
+  if (!S.user) return '';
+  if (S.sacked) return `<div><div class="club">${esc(S.user.name)}</div><div class="meta"><span>OUT OF WORK</span></div></div>`;
+  const c = me();
+  const when = S.phase === 'season' ? `WEEK ${S.week}/${WEEKS}` : S.phase === 'preseason' ? 'PRE-SEASON' : S.phase === 'playoffs' ? 'PLAY-OFFS' : 'SUMMER';
+  return `${badge(c)}<div><div class="club">${esc(c.name)}</div><div class="meta"><span>${DIV_SHORT[c.tier]}</span><span>${seasonLabel(S.season)}</span><span>${when}</span><span>${money(S.user.bank)}</span></div></div>`;
+}
+function navHTML() {
+  const unread = S.inbox.filter(m => !m.read).length;
+  const t = (k, l) => `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')">${l}${k === 'home' && unread && tab !== 'home' ? `<span class="dot">${unread}</span>` : ''}</button>`;
+  return t('home', 'Home') + t('squad', 'Squad') + t('transfers', 'Transfers') + t('league', 'League') + t('office', 'Office');
+}
+function render() {
+  const bar = document.getElementById('bar'), nav = document.getElementById('nav'), app = document.getElementById('app');
+  if (view === 'start') { bar.innerHTML = ''; bar.hidden = true; nav.innerHTML = ''; nav.hidden = true; app.innerHTML = startHTML(); return; }
+  bar.hidden = false; bar.innerHTML = barHTML();
+  if (view === 'match') { nav.hidden = true; app.innerHTML = matchHTML(); return; }
+  if (S.sacked) { nav.hidden = true; app.innerHTML = sackedHTML(); return; }
+  nav.hidden = false; nav.innerHTML = navHTML();
+  app.innerHTML = { home: homeHTML, squad: squadHTML, transfers: transfersHTML, league: leagueHTML, office: officeHTML }[tab]();
+  if (tab === 'home') { readAll(); save(); }
+}
+
+// ----- Start
+let startOptions = null;
+function startHTML() {
+  const saved = load();
+  if (!startOptions) {
+    newWorld();
+    startOptions = shuffle(S.clubs.filter(c => c.tier === 4)).slice(0, 3).map(c => c.id);
+    pickClub = startOptions[0];
+  }
+  const ranked = S.clubs.filter(c => c.tier === 4).sort((a, b) => teamRating(b) - teamRating(a));
+  const tip = c => { const r = ranked.indexOf(c) + 1; return r <= 3 ? 'Tipped for promotion' : r <= 7 ? 'Tipped for mid-table' : 'Tipped to struggle'; };
+  return `<div class="title"><div class="over">A football management game</div><h1>Up the <em>Divisions</em></h1>
+    <div class="tele">CONFERENCE &gt; DIV 3 &gt; DIV 2 &gt; DIV 1 &gt; PREMIER</div>
+    <p class="lede">Take a part-time club from the bottom of the pyramid to the top flight. Pick the team, wheel and deal in the transfer market, and keep the board happy. Lose too often and they'll show you the door.</p>
+    <div class="startbox">
+    ${saved ? `<div class="card hero" style="text-align:left;margin-bottom:22px"><div class="spread"><div><div class="kicker">Saved career</div><b>${esc(saved.user.name)}</b>, ${saved.sacked ? 'out of work' : esc(saved.clubs[saved.user.clubId].name)} · ${seasonLabel(saved.season)}</div><button class="btn go" onclick="resume()">Continue</button></div></div>` : ''}
+    <div class="card" style="text-align:left"><div class="kicker">${saved ? 'Or start a new career' : 'New career'}</div>
+      <label class="small dim" for="mgr">Your name</label><br><input type="text" id="mgr" maxlength="30" placeholder="Manager's name" style="width:min(320px,100%);margin:4px 0 14px;font-size:18px">
+      <div class="small dim">Three Conference clubs need a manager. Pick one:</div>
+      <div class="clubs">${startOptions.map(id => { const c = C(id); return `<button class="clubpick ${pickClub === id ? 'on' : ''}" onclick="pickClub=${id};render()">${badge(c)}<div class="nm">${esc(c.name)}</div><div class="small dim">${tip(c)}</div></button>`; }).join('')}</div>
+      <button class="btn go" onclick="startCareer()">${saved ? 'Start new career (replaces the save)' : 'Take the job'}</button>
+    </div></div></div>`;
+}
+function resume() { S = load(); teamRatingCache.clear(); view = 'main'; tab = 'home'; render(); }
+function startCareer() {
+  const name = (document.getElementById('mgr').value || '').trim() || 'The Gaffer';
+  S.user = { name, clubId: pickClub, conf: 60, warned: 0, rep: 10, target: null, lineup: [], style: 'Balanced', bank: START_BANK[4], tb: TB_BASE[4], wb: 0,
+    scouting: [], history: [], trophies: [], last: null, lastWeek: null, prevClub: null };
+  const club = me();
+  for (const id in S.players) { const p = S.players[id]; p.know = p.club === club.id ? 45 : (p.club != null && C(p.club).tier === 4) ? 20 : 10; }
+  for (const pid of club.squad) P(pid).listed = false;
+  S.user.wb = Math.max(Math.round(wageBill() * 1.25), WB_BASE[4]);
+  S.user.lineup = pickXI(club, '4-4-2', true);
+  setTarget();
+  mail(`Welcome to ${club.name}`, `The board want you to ${S.user.target.text.charAt(0).toLowerCase() + S.user.target.text.slice(1)}. Your staff's ratings of the players are rough for now. The range narrows the longer you work with someone, or once a scout has watched them. You have ${money(S.user.tb)} to spend, and the transfer window is open until week ${WINDOW_LAST}.`);
+  startOptions = null; view = 'main'; tab = 'home'; save(); render();
+}
+
+// ----- Home
+function homeHTML() {
+  const u = S.user, club = me();
+  return `<div class="grid"><div class="stack">${nextCard()}${lastCard()}
+    <div class="card"><h3>Inbox</h3><div class="inbox">${S.inbox.length ? S.inbox.slice(0, 25).map(msgHTML).join('') : '<p class="dim">Nothing yet.</p>'}</div></div>
+  </div><div class="stack">${boardCard()}
+    <div class="card"><div class="spread"><h3>${DIVS[club.tier]}</h3><a href="#" class="small dim" onclick="leagueTier=null;go('league');return false">Full table</a></div>${tableHTML(club.tier, true)}</div>
+  </div></div>`;
+}
+function msgHTML(m) {
+  let act = '';
+  if (m.kind === 'bid') act = m.done ? `<p class="dim">${m.result}</p>` : `<div class="row"><button class="btn sm go" onclick="acceptBid(${m.id})">Accept ${money(m.fee)}</button><button class="btn sm" onclick="rejectBid(${m.id})">Reject</button><button class="btn sm" onclick="openPlayer(${m.pid})">View player</button></div>`;
+  else if (m.pid && P(m.pid)) act = `<div class="row"><button class="btn sm" onclick="openPlayer(${m.pid})">View player</button></div>`;
+  return `<div class="msg ${m.read ? '' : 'new'}"><div class="spread"><b>${esc(m.title)}</b><span class="when">${m.when}</span></div><p>${m.body}</p>${act}</div>`;
+}
+function assistantPreview(oppId) {
+  const diff = teamRating(C(oppId)) - teamRating(me());
+  return diff > 6 ? "They're a class above us. A point would be a good result." : diff > 2 ? "They'll be tough. We'll need to be at our best."
+    : diff < -6 ? 'We should be beating this lot comfortably.' : diff < -2 ? "We're the better side on paper. No slip-ups." : "Evenly matched. It's there for the taking.";
+}
+function nextCard() {
+  const u = S.user, club = me();
+  if (S.phase === 'preseason') return `<div class="card hero"><div class="kicker">Pre-season ${seasonLabel(S.season)}</div><h2>${DIVS[club.tier]}</h2>
+    <p><b>The board's target:</b> ${u.target.text}.</p><p class="dim">Transfer budget ${money(u.tb)} · wage budget ${money(u.wb)}/wk. Sign players, set your team, then kick off.</p>
+    <div class="row"><button class="btn go" onclick="playNext()">Start the season</button><button class="btn" onclick="go('transfers')">Transfers</button><button class="btn" onclick="go('squad')">Squad</button></div></div>`;
+  if (S.phase === 'summer') return reviewCard();
+  const fx = userFixture();
+  if (S.phase === 'playoffs' && !fx) {
+    const rd = S.po.round === 1 ? 'semi-finals' : 'final';
+    return `<div class="card hero"><div class="kicker">Play-offs</div><h2>The play-off ${rd}</h2><p class="dim">${club.tier === 0 ? "There are no play-offs in the Premier Division. Your season's over." : "You're not involved. The other clubs battle it out."}</p>${poBracket(club.tier)}<button class="btn go" onclick="playNext()">Continue</button></div>`;
+  }
+  const [h, a] = fx, opp = C(h === club.id ? a : h), home = h === club.id;
+  const iss = lineupIssues();
+  const label = S.phase === 'playoffs' ? (S.po.round === 1 ? 'Play-off semi-final' : 'Play-off final · neutral ground') : `Week ${S.week} of ${WEEKS} · ${home ? 'Home' : 'Away'}`;
+  return `<div class="card hero"><div class="kicker">${label}</div>
+    <div class="fixture"><div class="side">${badge(C(h))}${esc(C(h).name)}</div><div class="v">v</div><div class="side away">${esc(C(a).name)}${badge(C(a))}</div></div>
+    <p class="small dim">${esc(opp.name)}: ${ord(position(opp))} in the table${opp.st.form ? `, form ${opp.st.form.split('').join(' ')}` : ''}.</p>
+    <div class="quote">"${assistantPreview(opp.id)}" <span class="dim">(your assistant)</span></div>
+    ${iss.length ? `<p class="warn small">${iss.join(' ')}</p>` : `<p class="small dim">Your team: ${formationOf(u.lineup)}, ${u.style.toLowerCase()}.</p>`}
+    <div class="row"><button class="btn go" onclick="playNext()">Play match</button><button class="btn" onclick="go('squad')">Pick team</button></div></div>`;
+}
+function lastCard() {
+  const L = S.user.last; if (!L || S.phase === 'preseason') return '';
+  const opp = C(L.opp), res = L.gf > L.ga ? 'Won' : L.gf < L.ga ? 'Lost' : 'Drew';
+  return `<div class="card"><div class="kicker">Last result</div><div class="spread"><b>${res} ${L.gf}-${L.ga} ${L.home ? 'v' : 'at'} ${esc(opp.name)}${L.pens ? `, ${L.pens}` : ''}</b></div>
+    <p class="small dim">${L.mine ? 'Our scorers: ' + L.mine + '. ' : ''}${L.theirs ? 'Theirs: ' + L.theirs + '.' : ''}</p></div>`;
+}
+function boardCard() {
+  const u = S.user, club = me();
+  const pos = S.phase === 'season' || S.phase === 'playoffs' ? position(club) : null;
+  return `<div class="card"><h3>The board</h3><div class="spread"><b style="color:${confColor(u.conf)}">${confWord(u.conf)}</b><span class="small dim">Confidence ${Math.round(u.conf)}%</span></div>
+    <div class="meter"><i style="width:${u.conf}%;background:${confColor(u.conf)}"></i></div>
+    <p class="small" style="margin-top:8px"><b>Target:</b> ${u.target.text}${pos ? `. <span class="dim">Currently ${ord(pos)}.</span>` : '.'}</p></div>`;
+}
+function reviewCard() {
+  const R = S.review, u = S.user;
+  const offers = R.offers.length ? `<h3 style="margin-top:14px">Job offers</h3><p class="small dim">Your reputation is growing. Other clubs want you.</p>
+    ${R.offers.map(id => { const c = C(id); return `<div class="spread msg"><span>${badge(c, true)}<b style="display:inline">${esc(c.name)}</b> <span class="dim small">${DIVS[c.tier]}</span></span><button class="btn sm" onclick="if(confirm('Leave for ' + C(${id}).name + '?'))takeJob(${id})">Take the job</button></div>`; }).join('')}` : '';
+  return `<div class="card hero"><div class="kicker">Season ${R.label} review</div>
+    <h2>${R.champs ? 'Champions!' : R.poWin ? 'Play-off winners!' : R.promoted ? 'Promoted!' : R.relegated ? 'Relegated' : `Finished ${ord(R.pos)}`}</h2>
+    <p>${R.champs || R.promoted ? `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}. Next season: the ${DIVS[R.nextTier]}.` : R.relegated ? `You finished ${ord(R.pos)} and drop into the ${DIVS[R.nextTier]}.` : `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}.`}</p>
+    <p><b>Target was:</b> ${R.target}. ${R.met ? '<span class="good">Achieved.</span>' : '<span class="bad">Missed.</span>'}</p>
+    <div class="quote">${R.verdict}</div>
+    <p class="small dim">Prize money: ${money(R.prize)}.${R.retired.length ? ` Retired: ${R.retired.join(', ')}.` : ''}</p>
+    ${R.youth.length ? `<p class="small"><b>Youth intake:</b> ${R.youth.join('; ')}.</p>` : ''}
+    ${offers}
+    <div class="row" style="margin-top:12px"><button class="btn go" onclick="playNext()">Begin pre-season</button></div></div>`;
+}
+function sackedHTML() {
+  const u = S.user;
+  return `<div style="max-width:680px;margin:0 auto"><div class="card hero"><div class="kicker">The P45</div><h2>You've been sacked</h2><p>${S.sacked.reason}</p>
+    <p class="dim small">Reputation: ${u.rep}/100. It's a setback, not the end. A few clubs have been in touch.</p>
+    <h3 style="margin-top:16px">Job offers</h3>
+    ${S.sacked.offers.map(id => { const c = C(id); return `<div class="spread msg"><span>${badge(c, true)}<b style="display:inline">${esc(c.name)}</b> <span class="small dim">${DIVS[c.tier]}${S.phase === 'season' ? `, ${ord(position(c))}` : ''}</span></span><button class="btn sm go" onclick="takeJob(${id});continueAfterSack();render()">Take the job</button></div>`; }).join('')}
+  </div></div>`;
+}
+
+// ----- Squad
+function squadHTML() {
+  const u = S.user, club = me(), L = u.lineup, iss = lineupIssues();
+  const order = { GK: 0, DF: 1, MF: 2, FW: 3 };
+  const roleOf = pid => (L.find(x => x.pid === pid) || {}).role || '';
+  const players = club.squad.map(P).sort((a, b) => (roleOf(a.id) ? 0 : 1) - (roleOf(b.id) ? 0 : 1) || order[roleOf(a.id) || a.pos] - order[roleOf(b.id) || b.pos] || estimate(b).c - estimate(a).c);
+  const rows = players.map(p => {
+    const r = roleOf(p.id), out = p.injured || p.suspended;
+    const sel = `<select aria-label="Role for ${esc(pname(p))}" onchange="setRole(${p.id},this.value)" ${out && !r ? 'disabled' : ''}>${['', ...POSS].map(x => `<option value="${x}" ${x === r ? 'selected' : ''}>${x || 'Reserve'}</option>`).join('')}</select>`;
+    const tags = (p.injured ? `<span class="tag inj">Injured ${p.injured}w</span>` : '') + (p.suspended ? '<span class="tag inj">Suspended</span>' : '')
+      + (p.listed ? '<span class="tag list">Listed</span>' : '') + (p.loanFrom != null ? '<span class="tag loan">Loan</span>' : '') + (r && r !== p.pos ? '<span class="tag scout">Out of position</span>' : '');
+    return `<tr class="${r ? 'me' : ''}"><td>${sel}</td><td class="nm"><a href="#" onclick="openPlayer(${p.id});return false" style="color:inherit">${esc(pname(p))}</a></td><td class="pos">${p.pos}</td><td class="n">${p.age}</td>
+      <td>${ratingHTML(p)}</td><td class="n">${formAvg(p)}</td><td class="n ${p.fitness < 75 ? 'warn' : ''}">${p.fitness}%</td><td>${moraleWord(p.morale)}</td><td class="n">${p.apps}/${p.goals}</td><td>${tags}</td></tr>`;
+  }).join('');
+  return `<div class="card hero"><div class="spread"><div><div class="kicker">Team selection</div><h2>${L.length}/11 picked · ${formationOf(L)}</h2></div>
+    <div class="row"><select id="formPick" aria-label="Formation">${Object.keys(FORMS).map(f => `<option ${f === (u.form || '4-4-2') ? 'selected' : ''}>${f}</option>`).join('')}</select><button class="btn" onclick="autoPick()">Assistant picks</button></div></div>
+    <div class="row" style="margin-top:6px"><span class="small dim">Style:</span><div class="seg">${STYLES.map(s => `<button class="${u.style === s ? 'on' : ''}" onclick="setStyle('${s}')">${s}</button>`).join('')}</div></div>
+    ${iss.length ? `<p class="warn small" style="margin-top:10px">${iss.join(' ')}</p>` : '<p class="good small" style="margin-top:10px">Team ready.</p>'}
+    <p class="small dim">Set each player's role to put them in the side. Your formation follows from how many defenders, midfielders and forwards you pick. Players out of position play worse, and a goalkeeper outfield (or the reverse) is a disaster. The assistant picks using the ratings your staff can see, so the picks are only as good as their knowledge.</p></div>
+    <div class="card" style="margin-top:18px"><div class="tablewrap"><table class="t"><thead><tr><th>Role</th><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th class="n">Form</th><th class="n">Fit</th><th>Morale</th><th class="n">Apps/Gls</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small dim" style="margin-top:8px">${club.squad.length} players · wage bill ${money(wageBill())}/wk. Ratings show what your staff think: the solid bar is the least they'd expect, the faded part how much better the player might be.</p></div>`;
+}
+
+// ----- Transfers
+function transfersHTML() {
+  const u = S.user, club = me();
+  const open = windowOpen();
+  let list;
+  if (tf.src === 'list') list = S.clubs.filter(c => c.id !== club.id).flatMap(c => c.squad.map(P).filter(p => p.listed));
+  else if (tf.src === 'free') list = S.free.map(P).filter(Boolean);
+  else list = Object.values(S.players).filter(p => p.club !== club.id && (p.know >= 60 || u.scouting.includes(p.id)));
+  if (tf.pos !== 'All') list = list.filter(p => p.pos === tf.pos);
+  if (tf.real === 'yes' && tf.src !== 'scouted') list = list.filter(p => willJoin(p) && (p.club == null || askingPrice(p) <= u.tb * 1.5));
+  list.sort((a, b) => estimate(b).c - estimate(a).c);
+  const rows = list.slice(0, 80).map(p => {
+    const c = p.club != null ? C(p.club) : null;
+    const price = !c ? '<span class="good">Free</span>' : p.listed ? money(askingPrice(p)) : '<span class="dim">Not for sale</span>';
+    return `<tr class="click" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}${u.scouting.includes(p.id) ? ' <span class="tag scout">Scouting</span>' : ''}</td><td class="pos">${p.pos}</td><td class="n">${p.age}</td>
+      <td>${c ? `${badge(c, true)}${esc(c.name)} <span class="dim small">${DIV_SHORT[c.tier]}</span>` : '<span class="dim">Free agent</span>'}</td><td>${ratingHTML(p)}</td><td class="n">${price}</td><td class="n">${money(demand(p))}</td></tr>`;
+  }).join('');
+  const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="${tf[key] === v ? 'on' : ''}" onclick="tf.${key}='${v}';render()">${l}</button>`).join('')}</div>`;
+  return `<div class="grid"><div class="card hero"><div class="kicker">${open ? (S.phase === 'preseason' ? 'Transfer window open' : `Window closes after week ${WINDOW_LAST}`) : 'Transfer window closed'}</div>
+      <h2>Transfer market</h2><p class="small dim">${open ? 'Scout players before you buy: an unscouted rating is a guess. Players at bigger clubs may not want to drop down to your level, and clubs ask a premium for players they rely on.' : 'You can still scout and plan. Signings reopen in pre-season.'}</p></div>
+    <div class="card"><h3>Budgets</h3><div class="facts"><div><span>Transfer budget</span>${money(u.tb)}</div><div><span>Bank</span>${money(u.bank)}</div>
+      <div><span>Wages</span>${money(wageBill())} of ${money(u.wb)}/wk</div><div><span>Squad</span>${club.squad.length}/${MAX_SQUAD}</div><div><span>Scouts out</span>${u.scouting.length}/${MAX_SCOUTS}</div></div></div></div>
+    <div class="card" style="margin-top:18px"><div class="row" style="margin-bottom:12px">${seg('src', [['list', 'Transfer list'], ['free', 'Free agents'], ['scouted', 'Scouted']])}${seg('pos', [['All', 'All'], ['GK', 'GK'], ['DF', 'DF'], ['MF', 'MF'], ['FW', 'FW']])}${tf.src !== 'scouted' ? seg('real', [['yes', 'Realistic targets'], ['no', 'Everyone']]) : ''}</div>
+      ${rows ? `<div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th>Pos</th><th class="n">Age</th><th>Club</th><th>Rating</th><th class="n">Price</th><th class="n">Wants/wk</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="dim">${tf.src === 'scouted' ? 'No scouting reports yet. Open any player, here or through the League tab, and send a scout.' : 'Nobody matches.'}</p>`}
+      <p class="small dim" style="margin-top:8px">Any player can be approached, not just listed ones. Browse every club's squad from the League tab.</p></div>`;
+}
+
+// ----- League
+function tableHTML(t, compact) {
+  const final = S.phase === 'summer' && S.finalTables;
+  const rows = final ? S.finalTables[t].map(r => ({ c: C(r.id), st: r.st })) : table(t).map(c => ({ c, st: c.st }));
+  return `<div class="tablewrap"><table class="t"><thead><tr><th class="n">#</th><th>Club</th><th class="n">P</th>${compact ? '' : '<th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">F</th><th class="n">A</th>'}<th class="n">GD</th><th class="n">Pts</th>${compact ? '' : '<th>Form</th>'}</tr></thead><tbody>${rows.map(({ c, st }, i) => {
+    const pos = i + 1;
+    const z = t === 0 && pos === 1 ? 'zchamp' : t > 0 && pos <= 2 ? 'zup' : t > 0 && pos <= 6 ? 'zpo' : t < 4 && pos >= 10 ? 'zdown' : '';
+    return `<tr class="click ${c.id === S.user.clubId ? 'me' : ''}" onclick="openClub(${c.id})"><td class="n ${z}">${pos}</td><td class="nm">${badge(c, true)}${esc(c.name)}</td><td class="n">${st.p}</td>${compact ? '' : `<td class="n">${st.w}</td><td class="n">${st.d}</td><td class="n">${st.l}</td><td class="n">${st.gf}</td><td class="n">${st.ga}</td>`}<td class="n">${st.gf - st.ga > 0 ? '+' : ''}${st.gf - st.ga}</td><td class="n"><b>${st.pts}</b></td>${compact ? '' : `<td class="rnum">${st.form}</td>`}</tr>`;
+  }).join('')}</tbody></table></div>
+  <div class="key">${t === 0 ? '<span><i style="background:var(--yellow)"></i>Champions</span>' : '<span><i style="background:var(--green)"></i>Promoted</span><span><i style="background:var(--cyan)"></i>Play-offs</span>'}${t < 4 ? '<span><i style="background:var(--red)"></i>Relegated</span>' : ''}</div>`;
+}
+function resultsHTML(list) {
+  return `<div class="results">${list.map(r => `<div class="${r.h === S.user.clubId || r.a === S.user.clubId ? 'mine' : ''}"><span>${esc(C(r.h).name)}</span><span>${r.hg}-${r.ag}</span><span>${esc(C(r.a).name)}${r.pens ? ` <span class="dim">(${r.pens})</span>` : ''}</span></div>`).join('')}</div>`;
+}
+function poBracket(t) {
+  if (!S.po || t === 0 || !S.po.ties[t]) return '';
+  let h = '';
+  if (S.po.results[1]) h += `<p class="small dim" style="margin:10px 0 4px">Semi-finals</p>${resultsHTML(S.po.results[1][t])}`;
+  if (S.po.results[2]) h += `<p class="small dim" style="margin:10px 0 4px">Final</p>${resultsHTML(S.po.results[2][t])}`;
+  else if (S.po.round === 2) h += `<p class="small dim" style="margin:10px 0 4px">Final</p><div class="results"><div><span>${esc(C(S.po.ties[t][0][0]).name)}</span><span>v</span><span>${esc(C(S.po.ties[t][0][1]).name)}</span></div></div>`;
+  else h += `<p class="small dim" style="margin:10px 0 4px">Semi-finals</p><div class="results">${S.po.ties[t].map(([a, b]) => `<div><span>${esc(C(a).name)}</span><span>v</span><span>${esc(C(b).name)}</span></div>`).join('')}</div>`;
+  return h;
+}
+function leagueHTML() {
+  const t = leagueTier ?? me().tier;
+  const fx = S.phase === 'season' && S.fixtures[t][S.week - 1];
+  return `<div class="row" style="margin-bottom:14px"><div class="seg">${DIVS.map((d, i) => `<button class="${i === t ? 'on' : ''}" onclick="leagueTier=${i};render()">${DIV_SHORT[i]}</button>`).join('')}</div></div>
+    <div class="grid"><div class="card"><h3>${DIVS[t]}${S.phase === 'summer' ? ' · final table' : ''}</h3>${tableHTML(t, false)}</div>
+    <div class="stack">
+      ${S.lastResults[t] ? `<div class="card"><h3>Latest results</h3>${resultsHTML(S.lastResults[t])}</div>` : ''}
+      ${fx ? `<div class="card"><h3>Week ${S.week} fixtures</h3><div class="results">${fx.map(([h, a]) => `<div class="${h === S.user.clubId || a === S.user.clubId ? 'mine' : ''}"><span>${esc(C(h).name)}</span><span>v</span><span>${esc(C(a).name)}</span></div>`).join('')}</div></div>` : ''}
+      ${S.po && t > 0 ? `<div class="card"><h3>Play-offs</h3>${poBracket(t)}</div>` : ''}
+      <p class="small dim">Tap a club to see its squad and approach its players.</p>
+    </div></div>`;
+}
+
+// ----- Office
+function officeHTML() {
+  const u = S.user, club = me(), lw = u.lastWeek, rt = repTier();
+  return `<div class="grid"><div class="stack">${boardCard()}
+    <div class="card"><h3>Finances</h3><div class="facts"><div><span>Bank</span>${money(u.bank)}</div><div><span>Transfer budget</span>${money(u.tb)}</div>
+      <div><span>Wage bill</span>${money(wageBill())}/wk</div><div><span>Wage budget</span>${money(u.wb)}/wk</div></div>
+      ${lw ? `<p class="small dim">Last week: ${lw.crowd ? `crowd of ${lw.crowd.toLocaleString('en-GB')} paid ${money(lw.gateMoney)}, ` : 'away game, no gate money, '}TV and sponsors ${money(lw.tv)}, wages ${money(lw.wages)}, running costs ${money(lw.costs)}.</p>` : ''}
+      <p class="small dim">Going into the red worries the board. Half of any transfer fee you receive goes into your transfer budget, and the board top it up every summer.</p></div>
+    </div><div class="stack">
+    <div class="card"><h3>${esc(u.name)}</h3><div class="spread"><span>Reputation</span><span class="small dim">${u.rep}/100</span></div><div class="meter"><i style="width:${u.rep}%;background:var(--cyan)"></i></div>
+      <p class="small dim">Clubs up to the ${DIVS[rt]} would take you seriously.</p>
+      ${u.trophies.length ? `<p><b>Honours:</b> ${u.trophies.map(esc).join(' · ')}</p>` : ''}
+      <h3 style="margin-top:14px">Career</h3>${u.history.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Season</th><th>Club</th><th>Div</th><th class="n">Pos</th><th></th></tr></thead><tbody>${u.history.map(h => `<tr><td>${h.season}</td><td>${esc(h.club)}</td><td>${DIV_SHORT[h.tier]}</td><td class="n">${h.pos ?? '–'}</td><td>${esc(h.note)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="dim small">Your first season.</p>'}
+    </div>
+    <div class="card"><h3>Game</h3><p class="small dim">Your career saves automatically on this device.</p><button class="btn bad" onclick="if(confirm('Abandon this career and start again?')){localStorage.removeItem(SAVE_KEY);startOptions=null;view='start';render()}">New career</button></div>
+    </div></div>`;
+}
+
+// ----- Match
+function matchHTML() {
+  const M = MM, [h, a] = M.sides, ch = C(h.club), ca = C(a.club);
+  const poss = M.minute ? Math.round(M.poss / M.minute * 100) : 50;
+  const mine = M.sides.find(s => s.me), mi = M.sides.indexOf(mine);
+  const scorers = s => s.scorers.map(x => `${P(x.pid).last} ${x.min}'`).join('<br>');
+  const feed = [...M.log].reverse().map(e => {
+    const team = e.side >= 0 && e.cls !== 'ht' ? `<span class="dim">${C(M.sides[e.side].club).short}</span> ` : '';
+    return `<div class="${e.cls}">${e.cls === 'ht' ? e.text : `<span class="min">${e.min}'</span>${team}${esc(e.text)}`}</div>`;
+  }).join('') || '<div class="q">The teams are out. Kick-off!</div>';
+  let panel = '';
+  if (M.done) panel = `<div class="controls"><button class="btn go" onclick="endMatch()">Continue</button></div>`;
+  else {
+    panel = `<div class="controls"><button class="btn ${M.paused ? 'go' : ''}" onclick="pauseMatch()">${M.half ? 'Kick off the second half' : M.paused ? 'Resume' : 'Pause · tactics'}</button>
+      <div class="seg"><button class="${speed === 1 ? 'on' : ''}" onclick="setSpeed(1)">Normal</button><button class="${speed === 2 ? 'on' : ''}" onclick="setSpeed(2)">Fast</button><button onclick="skipMatch()">Skip to end</button></div></div>`;
+    if (M.paused) {
+      const b = bench(M, mi);
+      panel += `<div class="card tactics"><h3>${M.half ? 'Half-time team talk' : 'Tactics'}</h3>
+        <div class="row"><span class="small dim">Style:</span><div class="seg">${STYLES.map(s => `<button class="${mine.style === s ? 'on' : ''}" onclick="matchStyle('${s}')">${s}</button>`).join('')}</div></div>
+        <div class="row"><span class="small dim">Substitution (${mine.subs}/3):</span>
+          <select id="subOff" aria-label="Player coming off" ${mine.subs >= 3 ? 'disabled' : ''}><option value="">Off…</option>${mine.xi.map(x => `<option value="${x.pid}">${x.role} ${esc(P(x.pid).last)} (${P(x.pid).fitness}%)</option>`).join('')}</select>
+          <select id="subOn" aria-label="Player coming on" ${mine.subs >= 3 ? 'disabled' : ''}><option value="">On…</option>${b.map(p => `<option value="${p.id}">${p.pos} ${esc(p.last)} ${estimate(p).lo}–${estimate(p).hi}</option>`).join('')}</select>
+          <button class="btn sm" onclick="matchSub()" ${mine.subs >= 3 ? 'disabled' : ''}>Make sub</button></div>
+        <p class="small dim" style="margin-top:8px">On the pitch: ${mine.xi.map(x => `${esc(P(x.pid).last)} <span class="pos">${x.role}</span>`).join(', ')}</p></div>`;
+    }
+  }
+  return `<div style="max-width:820px;margin:0 auto"><div class="scoreboard">
+    <div class="sb-top"><div class="sb-team">${esc(ch.name)}</div><div class="sb-score">${h.goals}-${a.goals}</div><div class="sb-team away">${esc(ca.name)}</div></div>
+    <div class="sb-clock">${M.done ? 'FULL TIME' : M.minute ? M.minute + "'" : "KICK-OFF"}${M.kind === 'po' ? (M.neutral ? ' · PLAY-OFF FINAL' : ' · PLAY-OFF SEMI') : ''}</div>
+    <div class="scorers"><div>${scorers(h)}</div><div>${scorers(a)}</div></div>
+    <div class="sb-stats"><div>${h.shots} shots (${h.on})</div><div>POSS ${poss}%</div><div>${a.shots} shots (${a.on})</div></div>
+    <div class="possbar"><i style="width:${poss}%;background:${ch.color}"></i><i style="flex:1;background:${ca.color}"></i></div>
+  </div>${panel}<div class="feed" aria-live="polite">${feed}</div></div>`;
+}
+
+// ----- Modals
+function openModal(html) {
+  const m = document.getElementById('modal');
+  document.getElementById('sheet').innerHTML = `<button class="btn sm x" onclick="closeModal()" aria-label="Close">✕</button>${html}`;
+  m.hidden = false;
+}
+function closeModal() { document.getElementById('modal').hidden = true; }
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function openPlayer(pid) {
+  const p = P(pid);
+  if (!p) return openModal('<p>That player has left.</p>');
+  const u = S.user, mine = p.club === u.clubId, club = p.club != null ? C(p.club) : null, e = estimate(p), open = windowOpen();
+  const vlo = value(p, e.lo), vhi = value(p, e.hi);
+  let actions = '';
+  if (mine) {
+    actions = p.loanFrom != null ? `<p class="small dim">On loan from ${esc(C(p.loanFrom).name)} until the summer.</p>`
+      : `<div class="row"><button class="btn" onclick="toggleList(${p.id})">${p.listed ? 'Take off the transfer list' : 'Put on the transfer list'}</button><button class="btn bad" onclick="releasePlayer(${p.id})">Release</button></div>`;
+  } else {
+    const sc = u.scouting.includes(p.id) ? '<span class="tag scout">Scout watching</span>' : p.know >= 75 ? '<span class="tag scout">Scouted</span>' : `<button class="btn" onclick="scout(${p.id})">Send a scout</button>`;
+    if (!club) actions = `<div class="row">${sc}<button class="btn go" onclick="signFree(${p.id})" ${open ? '' : 'disabled'}>Offer a contract · ${money(demand(p))}/wk</button></div>`;
+    else {
+      const suggest = p.listed ? askingPrice(p) : roundMoney((vlo + vhi) / 2);
+      actions = `<div class="row">${sc}</div>${open ? `<div class="row" style="margin-top:12px"><label for="fee" class="small dim">Your offer £</label><input type="number" id="fee" min="0" step="${suggest >= 1e5 ? 10000 : suggest >= 1e4 ? 1000 : 100}" value="${suggest}" style="width:140px">
+        <button class="btn go" onclick="makeBid(${p.id})">Make an offer</button><button class="btn" onclick="askLoan(${p.id})">Ask about a loan</button></div>
+        <p class="small dim" style="margin-top:6px">${p.listed ? `Listed by ${esc(club.name)} at ${money(askingPrice(p))}.` : `Not for sale. ${esc(club.name)} will want a premium.`} Budget ${money(u.tb)}. Would want ${money(demand(p))}/wk.</p>` : '<p class="small dim">The transfer window is closed.</p>'}`;
+    }
+  }
+  openModal(`<div class="kicker">${POS_NAME[p.pos]} · ${p.age}</div><h2>${esc(pname(p))}</h2>
+    <p class="small">${club ? `${clubLink(club)} <span class="dim">${DIVS[club.tier]}</span>` : '<span class="dim">Free agent</span>'}
+      ${p.listed ? '<span class="tag list">Transfer listed</span>' : ''}${p.injured ? `<span class="tag inj">Injured ${p.injured}w</span>` : ''}${p.suspended ? '<span class="tag inj">Suspended</span>' : ''}</p>
+    <div style="margin:12px 0 4px">${ratingHTML(p)} <span class="small dim">${knowWord(p.know)}</span></div>
+    <div class="facts"><div><span>Potential</span>${potentialWord(p)}</div><div><span>Form</span>${formAvg(p)}</div><div><span>Fitness</span>${p.fitness}%</div>
+      <div><span>Morale</span>${moraleWord(p.morale)}</div><div><span>This season</span>${p.apps} apps, ${p.goals} goals</div>
+      <div><span>${mine ? 'Wage' : 'Wants'}</span>${money(mine ? p.wage : demand(p))}/wk</div><div><span>Valued at</span>${vlo === vhi ? money(vlo) : `${money(vlo)}–${money(vhi)}`}</div></div>
+    <div class="quote">"${opinion(p)}" <span class="dim">(your assistant)</span></div>
+    ${actions}<div class="answer" id="answer"></div>`);
+}
+function openClub(cid) {
+  const c = C(cid), order = { GK: 0, DF: 1, MF: 2, FW: 3 };
+  const pos = S.phase === 'summer' ? null : position(c);
+  const ps = c.squad.map(P).sort((a, b) => order[a.pos] - order[b.pos] || estimate(b).c - estimate(a).c);
+  openModal(`<div class="kicker">${DIVS[c.tier]}${pos ? ` · ${ord(pos)}` : ''}</div><h2>${badge(c)} ${esc(c.name)}</h2>
+    ${cid !== S.user.clubId ? `<p class="small dim">Plays ${c.formation}, ${c.style.toLowerCase()}. Tap a player to scout or bid.</p>` : ''}
+    <div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th></th></tr></thead><tbody>
+    ${ps.map(p => `<tr class="click" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}</td><td class="pos">${p.pos}</td><td class="n">${p.age}</td><td>${ratingHTML(p)}</td><td>${p.listed ? '<span class="tag list">Listed</span>' : ''}${p.injured ? '<span class="tag inj">Inj</span>' : ''}</td></tr>`).join('')}
+    </tbody></table></div>`);
+}
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+render();
+</script>
+</body>
+</html>
