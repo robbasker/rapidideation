@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Louise's Pub Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Karla:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* A pub quiz in deep bar-room green, with each question stamped like a passport page. */
+  /* Layout: one centred card per question, the four answers in a 2 x 2 grid, scores across the top. */
+  :root {
+    --green: #16362f; --green-2: #1f4a40; --card: #f7f4ec; --ink: #1d2422; --soft: #5f6a66;
+    --gold: #e3b04b; --right: #2f8f5b; --wrong: #c2412f;
+    --denver: #d4581c; --mountains: #2f6db3; --history: #8a5a2b; --wild: #3d8b3d;
+    --display: "Alfa Slab One", "Rockwell", "Georgia", serif;
+    --body: "Karla", "Helvetica Neue", Arial, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--green-2) 0%, var(--green) 65%) fixed, var(--green);
+    color: var(--card); font-family: var(--body); font-size: 18px; line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 18px 56px; display: flex; flex-direction: column; gap: 20px; }
+
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .top .name { font-family: var(--display); color: var(--gold); font-size: 18px; letter-spacing: .02em; }
+  .score { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .bar { height: 6px; background: rgba(255, 255, 255, .12); border-radius: 99px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--gold); transition: width .3s ease; }
+
+  .card {
+    background: var(--card); color: var(--ink); border-radius: 10px; padding: 28px 26px 26px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .35); position: relative;
+  }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .qnum { font-weight: 700; color: var(--soft); letter-spacing: .1em; text-transform: uppercase; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .stamp {
+    font-family: var(--display); font-size: 14px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--c); border: 2px solid var(--c); border-radius: 6px; padding: 3px 10px;
+    transform: rotate(-4deg); background: color-mix(in srgb, var(--c) 8%, transparent);
+  }
+  .stamp.denver { --c: var(--denver); } .stamp.mountains { --c: var(--mountains); }
+  .stamp.history { --c: var(--history); } .stamp.wild { --c: var(--wild); }
+  h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 1.15; text-wrap: balance; }
+  .question { font-size: clamp(24px, 4vw, 30px); margin-bottom: 22px; }
+
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .options button {
+    font: inherit; font-weight: 600; font-size: 19px; text-align: left; color: var(--ink);
+    background: #fff; border: 2px solid #d9d4c6; border-radius: 8px; padding: 16px 16px 16px 50px;
+    cursor: pointer; position: relative; min-height: 64px; transition: border-color .15s, background .15s;
+  }
+  .options button::before {
+    content: attr(data-letter); position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 26px; border-radius: 50%; background: var(--green); color: var(--card);
+    font-size: 14px; display: grid; place-items: center; font-weight: 700;
+  }
+  .options button:hover:not(:disabled) { border-color: var(--green); }
+  .options button:disabled { cursor: default; }
+  .options button.right { background: #e3f3ea; border-color: var(--right); }
+  .options button.right::before { content: "✓"; background: var(--right); }
+  .options button.wrong { background: #f8e4e0; border-color: var(--wrong); }
+  .options button.wrong::before { content: "✗"; background: var(--wrong); }
+  .options button.faded { opacity: .55; }
+
+  .reveal { margin-top: 20px; padding-top: 18px; border-top: 2px dashed #d9d4c6; }
+  .verdict { font-family: var(--display); font-size: 22px; margin: 0 0 6px; }
+  .verdict.ok { color: var(--right); } .verdict.no { color: var(--wrong); }
+  .fact { margin: 0; color: #36403d; }
+
+  .actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-weight: 700; font-size: 18px; border: 0; border-radius: 8px; padding: 14px 26px; cursor: pointer;
+    background: var(--gold); color: var(--ink); box-shadow: 0 4px 0 #a87c25;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #a87c25; }
+  .btn.quiet { background: transparent; color: var(--card); box-shadow: none; border: 2px solid rgba(255, 255, 255, .35); }
+  button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+  /* Title and round screens */
+  .hero { text-align: center; padding: 6vh 0 0; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .hero .over { letter-spacing: .3em; text-transform: uppercase; font-weight: 700; color: var(--gold); font-size: 14px; }
+  .hero h1 { font-size: clamp(44px, 9vw, 76px); color: var(--card); }
+  .hero p { max-width: 46ch; margin: 0; color: #d6dfd9; }
+  .places { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 6px 0; }
+  .places .stamp { background: var(--card); font-size: 15px; }
+  .places .stamp:nth-child(even) { transform: rotate(3deg); }
+  .rounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 560px; }
+  .rounds div { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .15); border-radius: 8px; padding: 12px; }
+  .rounds strong { display: block; font-family: var(--display); font-weight: 400; color: var(--gold); font-size: 20px; }
+  .rounds span { font-size: 15px; color: #c5d0ca; }
+
+  .round-card { text-align: center; }
+  .round-card .big { font-family: var(--display); font-size: clamp(56px, 12vw, 96px); color: var(--green); line-height: 1; }
+  .round-card p { color: var(--soft); margin: 10px auto 0; max-width: 40ch; }
+  .tally { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 22px; }
+  .tally div { border-radius: 8px; padding: 10px 6px; background: #efebe0; }
+  .tally b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .tally small { color: var(--soft); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  .review { text-align: left; margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .review div { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 16px; border-bottom: 1px solid #e3ddd0; padding-bottom: 8px; }
+  .review .mark { font-weight: 700; } .review .mark.ok { color: var(--right); } .review .mark.no { color: var(--wrong); }
+  .review em { color: var(--soft); font-style: normal; display: block; font-size: 14px; }
+  .credit { text-align: center; font-size: 13px; color: #9fb2aa; letter-spacing: .04em; }
+
+  @media (max-width: 560px) {
+    .options { grid-template-columns: 1fr; }
+    .rounds { grid-template-columns: 1fr; }
+    .tally { grid-template-columns: repeat(2, 1fr); }
+    .card { padding: 22px 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+</head>
+<body>
+<main id="main"></main>
+
+<script>
+const PLACES = {
+  denver: "Denver",
+  mountains: "Mountains",
+  history: "History",
+  wild: "Wild Colorado",
+};
+
+// Three rounds of ten. The first option in each list is the right answer;
+// the order is shuffled when the quiz starts.
+const ROUNDS = [
+  {
+    name: "Hard", blurb: "No warm-up tonight. Even the first round needs real Colorado knowledge.",
+    questions: [
+      { place: "history", q: "In which year did Colorado become a state?", options: ["1876", "1861", "1889", "1912"],
+        fact: "It joined exactly 100 years after the Declaration of Independence, which is why it's called the Centennial State. It had been a territory since 1861." },
+      { place: "denver", q: "What do locals call the giant blue mustang statue outside Denver International Airport?", options: ["Blucifer", "Big Blue", "Bronco Bill", "The Night Mare"],
+        fact: "Its real name is Blue Mustang. The sculptor, Luis Jiménez, was killed in 2006 when part of it fell on him, and it was finished by his family." },
+      { place: "mountains", q: "What is the highest mountain in Colorado?", options: ["Mount Elbert", "Pikes Peak", "Longs Peak", "Mount Massive"],
+        fact: "At 14,440 feet it's the highest point in the whole Rocky Mountains. Its neighbour Mount Massive is only 12 feet lower." },
+      { place: "wild", q: "What is Colorado's state animal?", options: ["The bighorn sheep", "The elk", "The mountain lion", "The black bear"],
+        fact: "The Rocky Mountain bighorn sheep was chosen in 1961. The rams' curled horns can weigh as much as the rest of their skeleton." },
+      { place: "denver", q: "In which year did the Denver Broncos win their first Super Bowl?", options: ["1998", "1978", "1987", "1990"],
+        fact: "They lost their first four Super Bowls, then beat the Green Bay Packers 31–24 in January 1998. They won again the next year, and in 2016." },
+      { place: "history", q: "What did gold-seekers famously paint on their wagons in 1859?", options: ["Pikes Peak or Bust", "Go West, Young Man", "Gold or Glory", "Denver or Die"],
+        fact: "Tens of thousands headed west in the gold rush. Many came home empty-handed with 'Busted, by gosh' painted on instead." },
+      { place: "mountains", q: "The view from the top of Pikes Peak inspired which song?", options: ["America the Beautiful", "Rocky Mountain High", "Home on the Range", "This Land Is Your Land"],
+        fact: "Katharine Lee Bates wrote the poem after reaching the summit in 1893. 'Rocky Mountain High' became Colorado's second state song in 2007." },
+      { place: "wild", q: "What is Colorado's state flower?", options: ["The Rocky Mountain columbine", "The Indian paintbrush", "The alpine forget-me-not", "The sego lily"],
+        fact: "The white and lavender columbine was chosen in 1899. It's protected by law, so you can't pick more than 25 a day on public land." },
+      { place: "history", q: "What does the name 'Colorado' mean in Spanish?", options: ["Coloured red", "Land of mountains", "Snowy peaks", "Golden river"],
+        fact: "Spanish explorers named the Colorado River for its reddish, silt-filled water, and the state took its name from the river." },
+      { place: "denver", q: "Which band filmed the concert 'Under a Blood Red Sky' at Red Rocks in 1983?", options: ["U2", "The Rolling Stones", "The Police", "Bruce Springsteen and the E Street Band"],
+        fact: "It poured with rain on the 5th of June 1983, which only made the film more famous. Red Rocks is owned by the City of Denver." },
+    ],
+  },
+  {
+    name: "Harder", blurb: "The kind of thing you only know if you've really lived there.",
+    questions: [
+      { place: "denver", q: "In 1935, a Denver drive-in owner trademarked the name of which food?", options: ["The cheeseburger", "The hot dog", "The burrito", "The French dip"],
+        fact: "Louis Ballast ran the Humpty Dumpty Barrel drive-in on Speer Boulevard. A plaque marks the spot today." },
+      { place: "mountains", q: "Which tunnel carries Interstate 70 under the Continental Divide?", options: ["The Eisenhower Tunnel", "The Moffat Tunnel", "The Hanging Lake Tunnel", "The Loveland Tunnel"],
+        fact: "It opened in 1973 at about 11,000 feet, one of the highest road tunnels in the world. The Moffat Tunnel is a railway tunnel from 1928." },
+      { place: "wild", q: "Which dinosaur is Colorado's state fossil?", options: ["Stegosaurus", "Allosaurus", "Tyrannosaurus", "Triceratops"],
+        fact: "The first Stegosaurus was found near Morrison in 1877. Schoolchildren campaigned for it to become the state fossil in 1982." },
+      { place: "history", q: "Which Titanic survivor's house is now a museum on Pennsylvania Street in Denver?", options: ["Margaret Brown", "Madeleine Astor", "Violet Jessop", "Lady Duff Gordon"],
+        fact: "She was known as Maggie in her lifetime. The name 'Unsinkable Molly Brown' was invented after she died." },
+      { place: "mountains", q: "In 2023, Mount Evans, which has the highest paved road in North America, got a new name. What is it?", options: ["Mount Blue Sky", "Mount Cheyenne", "Mount Arapaho", "Mount Columbine"],
+        fact: "The Arapaho were known as the Blue Sky People. John Evans was the territorial governor who resigned after the Sand Creek Massacre of 1864." },
+      { place: "denver", q: "At Coors Field, one row of seats in the upper deck is purple. Why?", options: ["It is exactly a mile above sea level", "It marks the longest home run", "It honours the Rockies' first season", "It was the colour of the old Denver Bears"],
+        fact: "It's the 20th row of the upper deck. Balls also fly further at that height, which is why the Rockies store theirs in a humidor." },
+      { place: "wild", q: "Why do all the aspens in a Colorado grove often turn gold at the same moment?", options: ["They are often one plant sharing a root system", "The first frost reaches them all at once", "They were all planted at the same time", "Elk strip their bark at the same time"],
+        fact: "A whole grove can grow from one set of roots, so every trunk is genetically the same tree. Some groves are thousands of years old." },
+      { place: "history", q: "What is the largest cliff dwelling at Mesa Verde National Park?", options: ["Cliff Palace", "Spruce Tree House", "Balcony House", "Long House"],
+        fact: "The Ancestral Puebloans built it about 800 years ago. It has around 150 rooms, and Mesa Verde became a national park in 1906." },
+      { place: "mountains", q: "Which is the highest incorporated city in the United States, at over 10,000 feet?", options: ["Leadville", "Breckenridge", "Telluride", "Aspen"],
+        fact: "Leadville sits at 10,152 feet. The nearby town of Alma is higher still, but it's a town, not a city." },
+      { place: "wild", q: "What is the tallest dune at Great Sand Dunes National Park called?", options: ["Star Dune", "High Dune", "Medano Dune", "Big Sandy"],
+        fact: "At about 750 feet it's the tallest dune in North America. High Dune, the one most visitors climb, is a little shorter." },
+    ],
+  },
+  {
+    name: "Hardest", blurb: "The final round. Only the truly dedicated will get these.",
+    questions: [
+      { place: "denver", q: "Which step of the Colorado State Capitol is now marked as exactly one mile above sea level?", options: ["The 13th", "The 15th", "The 18th", "The top step"],
+        fact: "The 15th step was carved 'One Mile Above Sea Level' in 1909. A 1969 survey moved the mark to the 18th, and a 2003 survey moved it again, to the 13th." },
+      { place: "history", q: "Which Leadville silver king lost his fortune when silver prices crashed in 1893?", options: ["Horace Tabor", "Spencer Penrose", "Winfield Stratton", "J. J. Brown"],
+        fact: "His widow, Baby Doe Tabor, lived on in a cabin at the Matchless Mine for decades, and was found frozen there in 1935." },
+      { place: "mountains", q: "By the usual rule, how many 'fourteeners', peaks over 14,000 feet, does Colorado have?", options: ["53", "47", "64", "39"],
+        fact: "There are 58 summits over 14,000 feet, but only 53 rise far enough above their neighbours to count as separate mountains." },
+      { place: "wild", q: "What is Colorado's state bird?", options: ["The lark bunting", "The mountain bluebird", "The western meadowlark", "The Steller's jay"],
+        fact: "It was chosen in 1931. The lark bunting is a sparrow of the eastern plains; the males are black with bold white wing patches." },
+      { place: "denver", q: "Denver was named in 1858 after James W. Denver. What was he?", options: ["Governor of Kansas Territory", "A gold prospector", "A railroad owner", "A US Army general fighting in Mexico"],
+        fact: "Colorado was then part of Kansas Territory. The founders hoped to win his favour, not knowing he had already resigned." },
+      { place: "history", q: "Who founded Colorado Springs in 1871?", options: ["William Jackson Palmer", "Zebulon Pike", "Kit Carson", "William Gilpin"],
+        fact: "Palmer was a railroad man who built the Denver and Rio Grande. Zebulon Pike saw Pikes Peak in 1806, but never reached the top." },
+      { place: "mountains", q: "Which is the oldest ski area in Colorado still in use, open since 1915?", options: ["Howelsen Hill", "Arapahoe Basin", "Aspen Mountain", "Winter Park"],
+        fact: "It was started in Steamboat Springs by Carl Howelsen, a Norwegian ski jumper, and has produced more Winter Olympians than any other ski area in North America." },
+      { place: "wild", q: "What is the tallest cliff in Colorado, in the Black Canyon of the Gunnison?", options: ["The Painted Wall", "The Royal Gorge", "Chasm View", "The Devil's Kitchen"],
+        fact: "It rises about 2,250 feet, almost twice the height of the Empire State Building. Its pale stripes are veins of pegmatite." },
+      { place: "denver", q: "Which architect designed Denver's 16th Street Mall, which opened in 1982?", options: ["I. M. Pei", "Daniel Libeskind", "Frank Gehry", "Frank Lloyd Wright"],
+        fact: "Its granite paving is patterned like the skin of a diamondback rattlesnake. Daniel Libeskind designed the Denver Art Museum's angular Hamilton Building." },
+      { place: "history", q: "The Ludlow Massacre of 1914 happened during a strike by which workers?", options: ["Coal miners", "Railroad workers", "Silver miners", "Steel workers"],
+        fact: "The National Guard attacked a tent camp of striking miners and their families. The deaths helped bring in new laws on workers' rights." },
+    ],
+  },
+];
+
+const VERDICTS = [
+  [24, "Champion of the pub! A true Coloradan, from the plains to the peaks."],
+  [18, "Brilliant. On questions this hard, that's a seriously impressive score."],
+  [12, "A very respectable score for a fiendish quiz."],
+  [6, "Tough night. These were hard, and some of them were very hard."],
+  [0, "Have you actually been to Colorado, or just flown over it?"],
+];
+
+// ===== State =====
+
+const SAVE_KEY = "louise-pub-quiz-v3";  // v3: the Colorado questions
+const rand = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32; } catch (e) { return Math.random(); } };
+const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+let S = null;
+
+function newQuiz() {
+  // Shuffle each question's answers, and remember which one is right.
+  const order = ROUNDS.map(r => r.questions.map(q => shuffle([0, 1, 2, 3])));
+  return { screen: "round", round: 0, index: 0, order, answers: ROUNDS.map(() => []) };
+}
+
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* not available */ } }
+function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+
+const total = () => S.answers.flat().filter(a => a === 0).length;
+const answered = () => S.answers.flat().length;
+const roundScore = r => S.answers[r].filter(a => a === 0).length;
+
+// ===== Drawing =====
+
+const main = document.getElementById("main");
+
+function topBar() {
+  return `
+    <div class="top">
+      <span class="name">Louise's Pub Quiz</span>
+      <span class="score">Score ${total()} / ${answered()}</span>
+    </div>
+    <div class="bar" aria-hidden="true"><span style="width:${(answered() / 30) * 100}%"></span></div>`;
+}
+
+function render() {
+  if (!S) return renderTitle();
+  save();
+  if (S.screen === "round") return renderRoundStart();
+  if (S.screen === "question") return renderQuestion();
+  if (S.screen === "roundEnd") return renderRoundEnd();
+  if (S.screen === "final") return renderFinal();
+}
+
+function renderTitle() {
+  const saved = loadSave();
+  const canContinue = saved && saved.screen !== "final" && saved.answers.flat().length > 0;
+  main.innerHTML = `
+    <section class="hero">
+      <div class="over">Quiz night</div>
+      <h1>Louise's Pub Quiz</h1>
+      <div class="places">
+        ${Object.entries(PLACES).map(([id, name]) => `<span class="stamp ${id}">${name}</span>`).join("")}
+      </div>
+      <p>Thirty questions about Colorado, from downtown Denver to the highest peaks. Three rounds of ten: hard, harder and hardest. Pick an answer for each one, and there's no going back.</p>
+      <div class="rounds">
+        ${ROUNDS.map((r, i) => `<div><strong>Round ${i + 1}</strong><span>${r.name}</span></div>`).join("")}
+      </div>
+      <div class="actions" style="justify-content:center">
+        ${canContinue ? `<button class="btn quiet" id="continue">Carry on from question ${saved.answers.flat().length + 1}</button>` : ""}
+        <button class="btn" id="start">Start the quiz</button>
+      </div>
+    </section>
+    <p class="credit">Made for Louise Baskerville</p>`;
+  document.getElementById("start").addEventListener("click", () => { S = newQuiz(); render(); });
+  document.getElementById("continue")?.addEventListener("click", () => { S = saved; render(); });
+}
+
+function renderRoundStart() {
+  const r = ROUNDS[S.round];
+  main.innerHTML = `
+    ${topBar()}
+    <section class="card round-card">
+      <p class="qnum" style="margin:0 0 6px">Round ${S.round + 1} of 3</p>
+      <div class="big">${r.name}</div>
+      <p>${r.blurb}</p>
+      <div class="places" style="margin-top:20px">
+        ${Object.keys(PLACES).map(id => `<span class="stamp ${id}">${PLACES[id]} × ${r.questions.filter(q => q.place === id).length}</span>`).join("")}
+      </div>
+    </section>
+    <div class="actions"><button class="btn" id="go">Question 1</button></div>`;
+  document.getElementById("go").addEventListener("click", () => { S.screen = "question"; S.index = 0; render(); });
+}
+
+function renderQuestion() {
+  const r = ROUNDS[S.round], q = r.questions[S.index];
+  const order = S.order[S.round][S.index];
+  const chosen = S.answers[S.round][S.index];
+  const done = chosen !== undefined;
+  const last = S.index === r.questions.length - 1;
+  main.innerHTML = `
+    ${topBar()}
+    <section class="card">
+      <div class="meta">
+        <span class="qnum">Round ${S.round + 1} · Question ${S.index + 1} of 10</span>
+        <span class="stamp ${q.place}">${PLACES[q.place]}</span>
+      </div>
+      <h2 class="question">${q.q}</h2>
+      <div class="options">
+        ${order.map((opt, i) => {
+          let cls = "";
+          if (done) cls = opt === 0 ? "right" : opt === chosen ? "wrong" : "faded";
+          return `<button data-opt="${opt}" data-letter="${"ABCD"[i]}" class="${cls}" ${done ? "disabled" : ""}>${q.options[opt]}</button>`;
+        }).join("")}
+      </div>
+      ${done ? `
+        <div class="reveal" aria-live="polite">
+          <p class="verdict ${chosen === 0 ? "ok" : "no"}">${chosen === 0 ? "Correct!" : `Not quite. It's ${q.options[0]}.`}</p>
+          <p class="fact">${q.fact}</p>
+        </div>` : ""}
+    </section>
+    ${done ? `<div class="actions"><button class="btn" id="next">${last ? `End of round ${S.round + 1}` : `Question ${S.index + 2}`}</button></div>` : ""}`;
+  main.querySelectorAll(".options button").forEach(b => b.addEventListener("click", () => {
+    S.answers[S.round][S.index] = Number(b.dataset.opt);
+    render();
+  }));
+  document.getElementById("next")?.addEventListener("click", () => {
+    if (last) S.screen = "roundEnd"; else S.index += 1;
+    render();
+    window.scrollTo({ top: 0 });
+  });
+}
+
+function placeTally(rounds) {
+  return Object.keys(PLACES).map(id => {
+    let right = 0, asked = 0;
+    rounds.forEach(ri => ROUNDS[ri].questions.forEach((q, qi) => {
+      if (q.place !== id) return;
+      asked++;
+      if (S.answers[ri][qi] === 0) right++;
+    }));
+    return `<div><b>${right}/${asked}</b><small>${PLACES[id]}</small></div>`;
+  }).join("");
+}
+
+function renderRoundEnd() {
+  const score = roundScore(S.round);
+  const last = S.round === ROUNDS.length - 1;
+  main.innerHTML = `
+    ${topBar()}
+    <section class="card round-card">
+      <p class="qnum" style="margin:0 0 6px">End of round ${S.round + 1}: ${ROUNDS[S.round].name}</p>
+      <div class="big">${score}<span style="font-size:.45em;color:var(--soft)"> / 10</span></div>
+      <p>${score >= 9 ? "Outstanding round." : score >= 7 ? "Lovely work." : score >= 5 ? "Solid. Plenty still to play for." : "A tough one. Next round's a fresh start."}</p>
+      <div class="tally">${placeTally([S.round])}</div>
+    </section>
+    <div class="actions"><button class="btn" id="next">${last ? "See the final score" : `On to round ${S.round + 2}`}</button></div>`;
+  document.getElementById("next").addEventListener("click", () => {
+    if (last) S.screen = "final"; else { S.round += 1; S.index = 0; S.screen = "round"; }
+    render();
+    window.scrollTo({ top: 0 });
+  });
+}
+
+function renderFinal() {
+  const score = total();
+  const verdict = VERDICTS.find(([min]) => score >= min)[1];
+  main.innerHTML = `
+    ${topBar()}
+    <section class="card round-card">
+      <p class="qnum" style="margin:0 0 6px">Final score</p>
+      <div class="big">${score}<span style="font-size:.45em;color:var(--soft)"> / 30</span></div>
+      <p>${verdict}</p>
+      <div class="tally">${ROUNDS.map((r, i) => `<div><b>${roundScore(i)}/10</b><small>Round ${i + 1}</small></div>`).join("")}</div>
+      <div class="tally">${placeTally([0, 1, 2])}</div>
+      <div class="review">
+        ${ROUNDS.map((r, ri) => r.questions.map((q, qi) => {
+          const ok = S.answers[ri][qi] === 0;
+          return `<div><span class="mark ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span><span>${q.q}<em>${q.options[0]}${ok ? "" : ` (you said ${q.options[S.answers[ri][qi]]})`}</em></span></div>`;
+        }).join("")).join("")}
+      </div>
+    </section>
+    <div class="actions"><button class="btn" id="again">Play again</button></div>
+    <p class="credit">Made for Louise Baskerville</p>`;
+  document.getElementById("again").addEventListener("click", () => { S = newQuiz(); render(); window.scrollTo({ top: 0 }); });
+}
+
+// ===== Start =====
+
+function start(data) {
+  if (data && data.S) S = data.S;
+  render();
+}
+window.claude?.hot?.snapshot?.(() => ({ S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
