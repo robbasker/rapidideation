@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ricky's Crossword</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Libre+Caslon+Display&display=swap" rel="stylesheet">
+<style>
+  /* A daily-newspaper crossword: white paper, black ink, a yellow cursor and a pale-blue word highlight. */
+  /* Layout: toolbar across the top, the grid on the left with the current clue above it, Across and Down lists on the right. */
+  :root {
+    --ink: #121212; --soft: #5a5a5a; --rule: #dcdcdc; --paper: #fff; --tint: #f4f4f4;
+    --cursor: #ffda00; --word: #a7d8ff; --cross: #dcefff; --wrong: #d0021b; --reveal: #2860d8; --pencil: #8a8a8a;
+    --display: "Libre Caslon Display", "Cheltenham", Georgia, serif;
+    --body: "Libre Franklin", "Franklin Gothic", "Helvetica Neue", Arial, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); }
+  body { -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible { outline: 2px solid var(--reveal); outline-offset: 2px; }
+
+  header.masthead { border-bottom: 1px solid var(--rule); padding: 18px 24px 14px; }
+  .masthead .wrap { max-width: 1180px; margin: 0 auto; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .masthead h1 { font-family: var(--display); font-weight: 400; font-size: 38px; margin: 0; letter-spacing: -.01em; }
+  .masthead .date { font-size: 17px; font-weight: 500; }
+  .masthead .date a { color: inherit; text-decoration: none; padding: 0 4px; }
+  .masthead .date a:hover { color: var(--reveal); }
+  .masthead .date .off { color: var(--rule); padding: 0 4px; }
+  .masthead .ptitle { font-size: 17px; font-style: italic; color: var(--soft); }
+  .masthead .by { font-size: 13px; color: var(--soft); margin-left: auto; }
+  .masthead .by b { color: var(--ink); font-weight: 600; }
+
+  .toolbar { border-bottom: 1px solid var(--rule); padding: 0 24px; position: sticky; top: 0; background: var(--paper); z-index: 5; }
+  .toolbar .wrap { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; height: 48px; gap: 4px; }
+  .timer { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; margin: 0 auto 0 0; }
+  .timer button { border: 0; background: none; cursor: pointer; padding: 6px; display: grid; place-items: center; border-radius: 4px; }
+  .timer button:hover { background: var(--tint); }
+  .tool { position: relative; }
+  .tool > button { border: 0; background: none; cursor: pointer; font-size: 15px; font-weight: 500; padding: 8px 12px; border-radius: 4px; }
+  .tool > button:hover, .tool.open > button { background: var(--tint); }
+  .tool > button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .menu { display: none; position: absolute; right: 0; top: 42px; background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .12); min-width: 170px; padding: 6px 0; z-index: 10; }
+  .tool.open .menu { display: block; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 9px 16px; font-size: 15px; cursor: pointer; }
+  .menu button:hover { background: var(--tint); }
+  .menu label { display: flex; gap: 10px; align-items: center; padding: 9px 16px; font-size: 15px; cursor: pointer; }
+  .menu hr { border: 0; border-top: 1px solid var(--rule); margin: 6px 0; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 22px 24px 40px; display: grid; grid-template-columns: minmax(300px, 560px) 1fr; gap: 32px; align-items: start; }
+  .board { position: relative; }
+  .clue-bar { display: flex; align-items: stretch; min-height: 56px; background: var(--cross); margin-bottom: 10px; }
+  .clue-bar button { border: 0; background: none; width: 40px; cursor: pointer; font-size: 22px; color: var(--soft); flex: none; }
+  .clue-bar button:hover { color: var(--ink); }
+  .clue-bar .text { flex: 1; display: flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 18px; line-height: 1.3; }
+  .clue-bar .num { font-weight: 800; white-space: nowrap; }
+
+  .grid-wrap { position: relative; }
+  svg.grid { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation; cursor: pointer; }
+  .grid .cell { fill: #fff; }
+  .grid .cell.black { fill: #000; }
+  .grid .cell.word { fill: var(--word); }
+  .grid .cell.cur { fill: var(--cursor); }
+  .grid .lines { fill: none; stroke: #959595; stroke-width: .6; pointer-events: none; }
+  .grid .frame { fill: none; stroke: #000; stroke-width: 2.5; pointer-events: none; }
+  .grid .n { font-size: 10.5px; font-weight: 500; pointer-events: none; }
+  .grid .l { font-size: 22px; font-weight: 500; text-anchor: middle; pointer-events: none; text-transform: uppercase; }
+  .grid .l.pencil { fill: var(--pencil); font-weight: 400; }
+  .grid .l.revealed { fill: var(--reveal); }
+  .grid .l.locked { fill: var(--reveal); }
+  .grid .slash { stroke: var(--wrong); stroke-width: 1.4; pointer-events: none; }
+  .grid .tri { fill: var(--wrong); pointer-events: none; }
+  .grid .tri.ok { fill: var(--reveal); }
+
+  .paused { position: absolute; inset: 0; background: rgba(255, 255, 255, .97); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; z-index: 3; }
+  .paused.on { display: flex; }
+  .paused h2 { font-family: var(--display); font-weight: 400; font-size: 34px; margin: 0; }
+  .paused p { margin: 0; color: var(--soft); }
+  .pill { border: 0; background: var(--ink); color: #fff; border-radius: 999px; padding: 12px 34px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  .pill.ghost { background: none; color: var(--ink); border: 1px solid var(--ink); }
+
+  .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; position: sticky; top: 64px; }
+  .list h3 { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--rule); }
+  .list ol { list-style: none; margin: 0; padding: 6px 0 0; max-height: calc(100vh - 150px); overflow-y: auto; scroll-behavior: smooth; }
+  .list li { display: grid; grid-template-columns: 30px 1fr; gap: 4px; padding: 6px 8px 6px 4px; font-size: 15px; line-height: 1.35; cursor: pointer; border-left: 8px solid transparent; }
+  .list li b { font-weight: 700; text-align: right; padding-right: 6px; }
+  .list li.on { background: var(--word); }
+  .list li.cross { border-left-color: var(--word); }
+  .list li.done { color: #9a9a9a; }
+
+  /* On-screen keyboard for phones and tablets */
+  .keys { display: none; position: fixed; left: 0; right: 0; bottom: 0; background: #d5d8dd; padding: 6px 3px calc(6px + env(safe-area-inset-bottom)); z-index: 8; }
+  .keys .row { display: flex; justify-content: center; gap: 5px; margin: 5px 0; }
+  .keys button { flex: 1; max-width: 46px; height: 46px; border: 0; border-radius: 5px; background: #fff; font-size: 20px; font-weight: 500;
+    box-shadow: 0 1px 0 #8b8f94; cursor: pointer; touch-action: manipulation; }
+  .keys button.wide { max-width: 72px; flex: 1.5; font-size: 14px; font-weight: 600; background: #adb3bc; }
+  .keys button.wide[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .keys button:active { background: #c4c8ce; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  .modal.on { display: flex; }
+  .modal .box { background: #fff; max-width: 440px; width: 100%; border-radius: 6px; padding: 34px 30px 28px; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+  .modal h2 { font-family: var(--display); font-weight: 400; font-size: 36px; margin: 0 0 10px; }
+  .modal p { margin: 0 0 14px; line-height: 1.5; color: #333; }
+  .modal .theme { background: var(--tint); border-radius: 4px; padding: 14px 16px; text-align: left; font-size: 15px; margin-bottom: 20px; }
+  .modal .theme b { letter-spacing: .04em; }
+  .modal .row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; gap: 20px; }
+    .board { max-width: 600px; width: 100%; margin: 0 auto; }
+    .lists { position: static; }
+    .list ol { max-height: none; }
+  }
+  @media (max-width: 560px) {
+    header.masthead { padding: 12px 14px 10px; }
+    .masthead h1 { font-size: 28px; }
+    .masthead .by { margin-left: 0; width: 100%; }
+    .toolbar { padding: 0 8px; }
+    .tool > button { padding: 8px 8px; font-size: 14px; }
+    main { padding: 10px 6px 30px; }
+    .lists { grid-template-columns: 1fr; }
+  }
+  body.touch .keys { display: block; }
+  body.touch main { padding-bottom: 190px; }
+  @media (prefers-reduced-motion: reduce) { .list ol { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <h1>Ricky's Crossword</h1>
+    <span class="date" id="date"></span>
+    <span class="ptitle" id="ptitle"></span>
+    <span class="by">By <b>Rob Baskerville</b> &nbsp;·&nbsp; Made for <b>Ricky</b></span>
+  </div>
+</header>
+
+<nav class="toolbar" aria-label="Puzzle tools">
+  <div class="wrap">
+    <div class="timer">
+      <span id="clock">0:00</span>
+      <button id="pauseBtn" aria-label="Pause" title="Pause">
+        <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="1" y="1" width="4" height="14" fill="currentColor"/><rect x="9" y="1" width="4" height="14" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="tool"><button id="pencilBtn" aria-pressed="false" title="Pencil: letters you aren't sure of show in grey">Pencil</button></div>
+    <div class="tool" data-menu>
+      <button aria-haspopup="true">Clear</button>
+      <div class="menu">
+        <button data-act="clear-incomplete">Incomplete</button>
+        <button data-act="clear-word">Word</button>
+        <button data-act="clear-puzzle">Puzzle</button>
+        <hr><button data-act="clear-reset">Puzzle &amp; timer</button>
+      </div>
+    </div>
+    <div class="tool" data-menu>
+      <button aria-haspopup="true">Reveal</button>
+      <div class="menu">
+        <button data-act="reveal-square">Square</button>
+        <button data-act="reveal-word">Word</button>
+        <button data-act="reveal-puzzle">Puzzle</button>
+      </div>
+    </div>
+    <div class="tool" data-menu>
+      <button aria-haspopup="true">Check</button>
+      <div class="menu">
+        <label><input type="checkbox" id="autocheck"> Autocheck</label>
+        <hr>
+        <button data-act="check-square">Square</button>
+        <button data-act="check-word">Word</button>
+        <button data-act="check-puzzle">Puzzle</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <section class="board" aria-label="Crossword grid">
+    <div class="clue-bar">
+      <button id="prevClue" aria-label="Previous clue">‹</button>
+      <div class="text" aria-live="polite"><span class="num" id="barNum"></span><span id="barText"></span></div>
+      <button id="nextClue" aria-label="Next clue">›</button>
+    </div>
+    <div class="grid-wrap">
+      <svg class="grid" id="grid" viewBox="0 0 501 501" role="grid" aria-label="15 by 15 crossword"></svg>
+      <div class="paused" id="paused">
+        <h2>Your puzzle is paused</h2>
+        <p>Take a break. The clock has stopped.</p>
+        <button class="pill" id="resumeBtn">Resume</button>
+      </div>
+    </div>
+  </section>
+  <section class="lists">
+    <div class="list"><h3>Across</h3><ol id="listA"></ol></div>
+    <div class="list"><h3>Down</h3><ol id="listD"></ol></div>
+  </section>
+</main>
+
+<div class="keys" id="keys" aria-hidden="true"></div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="box">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <div class="row" id="modalButtons"></div>
+  </div>
+</div>
+
+<script type="module">
+// ---- Load the puzzle ----------------------------------------------------------
+// Each day's puzzle is puzzles/YYYY-MM-DD.json, listed in puzzles/index.json. The page
+// shows today's (by the solver's own clock), or the newest one if today's isn't out yet.
+// ?date=YYYY-MM-DD opens an older one.
+const pad = n => String(n).padStart(2, "0");
+const today = (d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)(new Date());
+let LIST, P;
+try {
+  LIST = (await (await fetch("puzzles/index.json", { cache: "no-cache" })).json()).puzzles.map(p => p.date).sort();
+  const asked = new URLSearchParams(location.search).get("date");
+  const pick = LIST.includes(asked) ? asked : LIST.filter(d => d <= today).pop() || LIST[0];
+  P = await (await fetch(`puzzles/${pick}.json`, { cache: "no-cache" })).json();
+} catch (e) {
+  document.querySelector("main").innerHTML = "<p>Sorry, the puzzle didn't load. If you opened this file straight from your computer, it needs to be served by a web server instead.</p>";
+  throw e;
+}
+const GRID = P.grid, CLUES = P.clues;
+const esc = t => String(t).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+const THEME = `<b>${esc(P.title)}</b><br>${esc(P.theme)}` +
+  (P.themeAnswers ? `<br><br>Theme answers: ${P.themeAnswers.map(a => `<b>${esc(a)}</b>`).join(", ")}` : "");
+const N = 15, SZ = 33, OFF = 1.5, SAVE_KEY = "rickys-crossword-" + P.date;
+
+// ---- Build the puzzle model -------------------------------------------------
+const black = (r, c) => r < 0 || c < 0 || r >= N || c >= N || GRID[r][c] === "#";
+const nums = [];           // nums[r][c] -> clue number or 0
+const words = { A: [], D: [] }; // { num, cells: [[r,c]...], answer }
+const wordAt = { A: [], D: [] }; // wordAt.A[r][c] -> index into words.A
+for (let r = 0, n = 0; r < N; r++) {
+  nums.push([]); wordAt.A.push([]); wordAt.D.push([]);
+  for (let c = 0; c < N; c++) {
+    nums[r][c] = 0;
+    if (black(r, c)) continue;
+    const a = black(r, c - 1) && !black(r, c + 1), d = black(r - 1, c) && !black(r + 1, c);
+    if (a || d) nums[r][c] = ++n;
+    if (a) words.A.push({ num: n, r, c });
+    if (d) words.D.push({ num: n, r, c });
+  }
+}
+for (const dir of ["A", "D"]) {
+  words[dir].forEach((w, i) => {
+    w.cells = [];
+    for (let r = w.r, c = w.c; !black(r, c); dir === "A" ? c++ : r++) { w.cells.push([r, c]); wordAt[dir][r][c] = i; }
+    w.answer = w.cells.map(([r, c]) => GRID[r][c]).join("");
+    w.clue = CLUES[dir][w.num];
+    if (!w.clue) console.warn("Missing clue", w.num + dir);
+  });
+}
+
+// ---- State ------------------------------------------------------------------
+const blank = () => GRID.map(row => [...row].map(ch => (ch === "#" ? null : "")));
+let S = {
+  fill: blank(),                              // the letters typed
+  pencil: GRID.map(row => [...row].map(() => false)),
+  mark: GRID.map(row => [...row].map(() => "")),  // "" | "wrong" | "revealed" | "ok"
+  elapsed: 0, solved: false, autocheck: false,
+};
+let cur = { r: 0, c: 0, dir: "A" }, pencilMode = false, paused = false, ticking = null, lastTick = 0, toldWrong = false;
+
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage not available */ } }
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (s && s.fill && s.fill.length === N) S = Object.assign(S, s);
+  } catch (e) { /* ignore a bad save */ }
+}
+
+// ---- Drawing ----------------------------------------------------------------
+const svg = document.getElementById("grid");
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const rects = [], letters = [], decor = [];
+(function buildGrid() {
+  const gCells = el("g", {}, svg), gText = el("g", {}, svg), gDecor = el("g", {}, svg);
+  for (let r = 0; r < N; r++) {
+    rects.push([]); letters.push([]); decor.push([]);
+    for (let c = 0; c < N; c++) {
+      const x = OFF + c * SZ, y = OFF + r * SZ;
+      const rect = el("rect", { x, y, width: SZ, height: SZ, class: "cell" + (black(r, c) ? " black" : ""), "data-r": r, "data-c": c }, gCells);
+      rects[r].push(rect);
+      if (black(r, c)) { letters[r].push(null); decor[r].push(null); continue; }
+      if (nums[r][c]) el("text", { x: x + 2.2, y: y + 10.5, class: "n" }, gText).textContent = nums[r][c];
+      letters[r].push(el("text", { x: x + SZ / 2, y: y + SZ - 4.5, class: "l" }, gText));
+      decor[r].push(el("g", { transform: `translate(${x},${y})` }, gDecor));
+    }
+  }
+  let d = "";
+  for (let i = 1; i < N; i++) d += `M${OFF + i * SZ} ${OFF}V${OFF + N * SZ}M${OFF} ${OFF + i * SZ}H${OFF + N * SZ}`;
+  el("path", { d, class: "lines" }, svg);
+  el("rect", { x: OFF, y: OFF, width: N * SZ, height: N * SZ, class: "frame" }, svg);
+})();
+
+const listEls = { A: document.getElementById("listA"), D: document.getElementById("listD") };
+const clueLis = { A: [], D: [] };
+for (const dir of ["A", "D"]) {
+  words[dir].forEach((w, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${w.num}</b><span></span>`;
+    li.lastChild.textContent = w.clue || "";
+    li.addEventListener("click", () => { goToWord(dir, i); });
+    listEls[dir].appendChild(li);
+    clueLis[dir].push(li);
+  });
+}
+
+function curWord(dir = cur.dir) { return words[dir][wordAt[dir][cur.r][cur.c]]; }
+
+function render() {
+  const w = curWord(), inWord = new Set(w.cells.map(([r, c]) => r * N + c));
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (black(r, c)) continue;
+    const isCur = r === cur.r && c === cur.c;
+    rects[r][c].setAttribute("class", "cell" + (isCur ? " cur" : inWord.has(r * N + c) ? " word" : ""));
+    const t = letters[r][c], m = S.mark[r][c];
+    t.textContent = S.fill[r][c] || "";
+    t.setAttribute("class", "l" + (S.pencil[r][c] ? " pencil" : "") + (m === "revealed" ? " revealed" : "") + (m === "ok" ? " locked" : ""));
+    const g = decor[r][c];
+    g.innerHTML = "";
+    if (m === "wrong") el("line", { x1: 2, y1: SZ - 2, x2: SZ - 2, y2: 2, class: "slash" }, g);
+    if (m === "revealed") el("path", { d: `M${SZ - 10} 0H${SZ}V10Z`, class: "tri ok" }, g);
+  }
+  // clue lists
+  const other = cur.dir === "A" ? "D" : "A", crossIdx = wordAt[other][cur.r][cur.c];
+  for (const dir of ["A", "D"]) words[dir].forEach((wd, i) => {
+    const li = clueLis[dir][i];
+    li.classList.toggle("on", dir === cur.dir && i === wordAt[dir][cur.r][cur.c]);
+    li.classList.toggle("cross", dir === other && i === crossIdx);
+    li.classList.toggle("done", wd.cells.every(([r, c]) => S.fill[r][c]));
+  });
+  scrollClue(clueLis[cur.dir][wordAt[cur.dir][cur.r][cur.c]]);
+  if (crossIdx !== undefined) scrollClue(clueLis[other][crossIdx]);
+  document.getElementById("barNum").textContent = w.num + (cur.dir === "A" ? "A" : "D");
+  document.getElementById("barText").textContent = w.clue;
+}
+function scrollClue(li) {
+  const ol = li.parentElement;
+  if (ol.scrollHeight <= ol.clientHeight) return;
+  const top = li.offsetTop - ol.offsetTop;
+  if (top < ol.scrollTop || top + li.offsetHeight > ol.scrollTop + ol.clientHeight) ol.scrollTop = top - ol.clientHeight / 3;
+}
+
+// ---- Movement ---------------------------------------------------------------
+function setCur(r, c, dir) {
+  cur.r = r; cur.c = c;
+  if (dir) cur.dir = dir;
+  if (wordAt[cur.dir][r][c] === undefined) cur.dir = cur.dir === "A" ? "D" : "A";
+  render();
+}
+function goToWord(dir, i) {
+  const w = words[dir][i];
+  const empty = w.cells.find(([r, c]) => !S.fill[r][c]) || w.cells[0];
+  setCur(empty[0], empty[1], dir);
+}
+// Next or previous clue. Across runs into Down and back round.
+function stepClue(delta, skipFilled = false) {
+  const order = [...words.A.map((w, i) => ["A", i]), ...words.D.map((w, i) => ["D", i])];
+  let k = order.findIndex(([d, i]) => d === cur.dir && i === wordAt[cur.dir][cur.r][cur.c]);
+  for (let tries = 0; tries < order.length; tries++) {
+    k = (k + delta + order.length) % order.length;
+    const [d, i] = order[k];
+    if (!skipFilled || words[d][i].cells.some(([r, c]) => !S.fill[r][c])) return goToWord(d, i);
+  }
+  goToWord(...order[(k + delta + order.length) % order.length]);
+}
+function advance() {
+  const w = curWord(), pos = w.cells.findIndex(([r, c]) => r === cur.r && c === cur.c);
+  const after = w.cells.slice(pos + 1).find(([r, c]) => !S.fill[r][c]);
+  if (after) return setCur(after[0], after[1]);
+  const before = w.cells.slice(0, pos).find(([r, c]) => !S.fill[r][c]);
+  if (before) return setCur(before[0], before[1]);
+  if (pos < w.cells.length - 1) return setCur(...w.cells[pos + 1]);
+  stepClue(1, true);
+}
+function arrow(dr, dc) {
+  const want = dr ? "D" : "A";
+  if (cur.dir !== want) { cur.dir = want; return render(); }
+  let r = cur.r + dr, c = cur.c + dc;
+  while (r >= 0 && c >= 0 && r < N && c < N) {
+    if (!black(r, c)) return setCur(r, c);
+    r += dr; c += dc;
+  }
+}
+
+// ---- Typing -----------------------------------------------------------------
+function locked(r, c) { return S.mark[r][c] === "revealed" || S.mark[r][c] === "ok"; }
+function type(ch) {
+  if (paused || S.solved) return;
+  const { r, c } = cur;
+  if (!locked(r, c)) {
+    S.fill[r][c] = ch; S.pencil[r][c] = pencilMode; S.mark[r][c] = "";
+    if (S.autocheck) checkCells([[r, c]]);
+  }
+  advance();
+  afterChange();
+}
+function backspace() {
+  if (paused || S.solved) return;
+  const { r, c } = cur;
+  if (S.fill[r][c] && !locked(r, c)) { S.fill[r][c] = ""; S.mark[r][c] = ""; return afterChange(); }
+  const w = curWord(), pos = w.cells.findIndex(([rr, cc]) => rr === r && cc === c);
+  let target = pos > 0 ? w.cells[pos - 1] : null;
+  if (!target) {
+    stepClue(-1);
+    const pw = curWord(); target = pw.cells[pw.cells.length - 1];
+  }
+  setCur(target[0], target[1]);
+  if (!locked(target[0], target[1])) { S.fill[target[0]][target[1]] = ""; S.mark[target[0]][target[1]] = ""; }
+  afterChange();
+}
+function afterChange() { save(); render(); checkDone(); }
+
+// ---- Check, reveal, clear ---------------------------------------------------
+const allCells = [];
+for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!black(r, c)) allCells.push([r, c]);
+function scope(what) { return what === "square" ? [[cur.r, cur.c]] : what === "word" ? curWord().cells : allCells; }
+function checkCells(cells) {
+  for (const [r, c] of cells) {
+    if (!S.fill[r][c] || S.mark[r][c] === "revealed") continue;
+    S.mark[r][c] = S.fill[r][c] === GRID[r][c] ? "ok" : "wrong";
+    if (S.mark[r][c] === "ok") S.pencil[r][c] = false;
+  }
+}
+function revealCells(cells) {
+  for (const [r, c] of cells) {
+    if (S.fill[r][c] === GRID[r][c] && S.mark[r][c] === "ok") continue;
+    if (S.fill[r][c] !== GRID[r][c] || S.pencil[r][c]) { S.fill[r][c] = GRID[r][c]; S.mark[r][c] = "revealed"; S.pencil[r][c] = false; }
+  }
+}
+function clearCells(cells) {
+  for (const [r, c] of cells) if (!locked(r, c)) { S.fill[r][c] = ""; S.mark[r][c] = ""; S.pencil[r][c] = false; }
+}
+function act(name) {
+  const [kind, what] = name.split("-");
+  if (S.solved && kind !== "clear") return;
+  if (kind === "check") checkCells(scope(what));
+  if (kind === "reveal") {
+    if (what === "puzzle") return confirmBox("Reveal the whole puzzle?", "This shows every answer and stops the clock.", "Reveal", () => { revealCells(allCells); afterChange(); });
+    revealCells(scope(what));
+  }
+  if (kind === "clear") {
+    if (what === "incomplete") {
+      for (const dir of ["A", "D"]) for (const w of words[dir]) if (w.cells.some(([r, c]) => !S.fill[r][c])) clearCells(w.cells);
+    } else if (what === "word") clearCells(curWord().cells);
+    else return confirmBox(what === "reset" ? "Start again from scratch?" : "Clear the whole puzzle?",
+      what === "reset" ? "Every letter is wiped and the clock goes back to 0:00." : "Every letter you've typed is wiped. Revealed and checked letters are wiped too.",
+      "Clear", () => {
+        for (const [r, c] of allCells) { S.fill[r][c] = ""; S.mark[r][c] = ""; S.pencil[r][c] = false; }
+        if (what === "reset") S.elapsed = 0;
+        S.solved = false; toldWrong = false; startClock(); afterChange(); showClock();
+      });
+  }
+  afterChange();
+}
+
+function checkDone() {
+  const full = allCells.every(([r, c]) => S.fill[r][c]);
+  if (!full) { toldWrong = false; return; }
+  const right = allCells.every(([r, c]) => S.fill[r][c] === GRID[r][c]);
+  if (right && !S.solved) {
+    S.solved = true; stopClock(); save();
+    const helped = allCells.some(([r, c]) => S.mark[r][c] === "revealed");
+    openModal("Congratulations!",
+      `<p>${helped ? "You finished the puzzle" : "You solved the puzzle"} in <b>${fmt(S.elapsed)}</b>.</p><div class="theme">${THEME}</div>`,
+      [["Admire the grid", "pill", closeModal]]);
+  } else if (!right && !toldWrong) {
+    toldWrong = true;
+    openModal("Almost there", "<p>The grid is full, but at least one square isn't right. Keep going, or use Check to find it.</p>",
+      [["Keep trying", "pill", closeModal]]);
+  }
+}
+
+// ---- Clock ------------------------------------------------------------------
+const fmt = s => {
+  s = Math.floor(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+};
+function showClock() { document.getElementById("clock").textContent = fmt(S.elapsed); }
+function startClock() {
+  if (ticking || S.solved || paused) return;
+  lastTick = performance.now();
+  ticking = setInterval(() => {
+    const now = performance.now();
+    S.elapsed += (now - lastTick) / 1000; lastTick = now;
+    showClock();
+    if (Math.floor(S.elapsed) % 5 === 0) save();
+  }, 250);
+}
+function stopClock() {
+  if (!ticking) return;
+  S.elapsed += (performance.now() - lastTick) / 1000;
+  clearInterval(ticking); ticking = null; showClock(); save();
+}
+function setPaused(on) {
+  if (S.solved) on = false;
+  paused = on;
+  document.getElementById("paused").classList.toggle("on", on);
+  on ? stopClock() : startClock();
+}
+document.getElementById("pauseBtn").addEventListener("click", () => setPaused(!paused));
+document.getElementById("resumeBtn").addEventListener("click", () => setPaused(false));
+document.addEventListener("visibilitychange", () => { if (document.hidden && !S.solved) setPaused(true); });
+
+// ---- Modal ------------------------------------------------------------------
+const modal = document.getElementById("modal");
+function openModal(title, body, buttons) {
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalBody").innerHTML = body;
+  const row = document.getElementById("modalButtons");
+  row.innerHTML = "";
+  for (const [label, cls, fn] of buttons) {
+    const b = document.createElement("button");
+    b.className = cls; b.textContent = label; b.addEventListener("click", fn);
+    row.appendChild(b);
+  }
+  modal.classList.add("on");
+  row.lastChild.focus();
+}
+function closeModal() { modal.classList.remove("on"); }
+function confirmBox(title, text, yes, fn) {
+  openModal(title, `<p>${text}</p>`, [["Cancel", "pill ghost", closeModal], [yes, "pill", () => { closeModal(); fn(); }]]);
+}
+modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+
+// ---- Toolbar ----------------------------------------------------------------
+document.querySelectorAll("[data-menu]").forEach(tool => {
+  tool.firstElementChild.addEventListener("click", e => {
+    e.stopPropagation();
+    const was = tool.classList.contains("open");
+    document.querySelectorAll(".tool.open").forEach(t => t.classList.remove("open"));
+    tool.classList.toggle("open", !was);
+  });
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".menu label")) document.querySelectorAll(".tool.open").forEach(t => t.classList.remove("open"));
+});
+document.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => act(b.dataset.act)));
+const autoBox = document.getElementById("autocheck");
+autoBox.addEventListener("change", () => {
+  S.autocheck = autoBox.checked;
+  if (S.autocheck) checkCells(allCells);
+  afterChange();
+});
+function setPencil(on) {
+  pencilMode = on;
+  document.getElementById("pencilBtn").setAttribute("aria-pressed", on);
+  const k = document.querySelector('.keys [data-k="pencil"]');
+  if (k) k.setAttribute("aria-pressed", on);
+}
+document.getElementById("pencilBtn").addEventListener("click", () => setPencil(!pencilMode));
+document.getElementById("prevClue").addEventListener("click", () => stepClue(-1));
+document.getElementById("nextClue").addEventListener("click", () => stepClue(1));
+document.querySelector(".clue-bar .text").addEventListener("click", () => { cur.dir = cur.dir === "A" ? "D" : "A"; setCur(cur.r, cur.c); });
+
+// ---- Grid clicks and keyboard ----------------------------------------------
+svg.addEventListener("click", e => {
+  const t = e.target.closest("rect.cell");
+  if (!t || paused) return;
+  const r = +t.dataset.r, c = +t.dataset.c;
+  if (black(r, c)) return;
+  if (r === cur.r && c === cur.c) cur.dir = cur.dir === "A" ? "D" : "A";
+  setCur(r, c);
+});
+document.addEventListener("keydown", e => {
+  if (modal.classList.contains("on")) { if (e.key === "Escape") closeModal(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey || paused) return;
+  const k = e.key;
+  if (/^[a-z]$/i.test(k)) type(k.toUpperCase());
+  else if (k === "Backspace" || k === "Delete") backspace();
+  else if (k === "ArrowLeft") arrow(0, -1);
+  else if (k === "ArrowRight") arrow(0, 1);
+  else if (k === "ArrowUp") arrow(-1, 0);
+  else if (k === "ArrowDown") arrow(1, 0);
+  else if (k === "Tab" || k === "Enter") stepClue(e.shiftKey ? -1 : 1);
+  else if (k === " ") { cur.dir = cur.dir === "A" ? "D" : "A"; setCur(cur.r, cur.c); }
+  else if (k === ".") setPencil(!pencilMode);
+  else return;
+  e.preventDefault();
+});
+
+// On-screen keyboard for touch screens, so the phone's own keyboard never covers the grid.
+(function buildKeys() {
+  const keys = document.getElementById("keys");
+  const rows = [["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"], ["A", "S", "D", "F", "G", "H", "J", "K", "L"], ["pencil", "Z", "X", "C", "V", "B", "N", "M", "del"]];
+  for (const row of rows) {
+    const div = document.createElement("div");
+    div.className = "row";
+    for (const k of row) {
+      const b = document.createElement("button");
+      b.dataset.k = k;
+      if (k === "pencil") { b.className = "wide"; b.textContent = "✎"; b.setAttribute("aria-pressed", "false"); b.title = "Pencil"; }
+      else if (k === "del") { b.className = "wide"; b.textContent = "⌫"; b.title = "Delete"; }
+      else b.textContent = k;
+      b.addEventListener("click", () => k === "pencil" ? setPencil(!pencilMode) : k === "del" ? backspace() : type(k));
+      div.appendChild(b);
+    }
+    keys.appendChild(div);
+  }
+  if (matchMedia("(pointer: coarse)").matches) document.body.classList.add("touch");
+})();
+
+// ---- Start ------------------------------------------------------------------
+(function masthead() {
+  const at = LIST.indexOf(P.date), when = new Date(P.date + "T12:00:00");
+  const link = (d, label, text) => d ? `<a href="?date=${d}" aria-label="${label}">${text}</a>` : `<span class="off">${text}</span>`;
+  document.getElementById("date").innerHTML =
+    link(LIST[at - 1], "Previous puzzle", "‹") +
+    ` ${when.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} ` +
+    link(LIST[at + 1] && LIST[at + 1] <= today ? LIST[at + 1] : null, "Next puzzle", "›");
+  document.getElementById("ptitle").textContent = P.title;
+  document.title = `${P.title} · Ricky's Crossword`;
+})();
+load();
+autoBox.checked = !!S.autocheck;
+goToWord("A", 0);
+showClock();
+if (S.solved) render(); else startClock();
+</script>
+</body>
+</html>
