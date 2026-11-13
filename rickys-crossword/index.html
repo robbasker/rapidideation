@@ -278,6 +278,30 @@ function load() {
   } catch (e) { /* ignore a bad save */ }
 }
 
+// ---- Usage counting -----------------------------------------------------------
+// Sends a few anonymous events to GoatCounter (goatcounter.com), so you can see when the
+// puzzles are played: opened, finished (with the time), revealed, and left unfinished.
+// Put the code name you picked when signing up for GoatCounter here; leave it empty to
+// switch counting off. Open the page once with ?notrack on your own phone or computer so
+// your own visits aren't counted (?track turns counting back on for that device).
+const GOATCOUNTER = "rbaskerville1980";
+const NOTRACK_KEY = "rickys-crossword-notrack";
+let tracking = !!GOATCOUNTER;
+try {
+  const q = new URLSearchParams(location.search);
+  if (q.has("notrack")) localStorage.setItem(NOTRACK_KEY, "1");
+  if (q.has("track")) localStorage.removeItem(NOTRACK_KEY);
+  if (localStorage.getItem(NOTRACK_KEY)) tracking = false;
+} catch (e) { /* storage not available: count as normal */ }
+const counted = new Set();  // events already sent since the page was opened
+function count(what, once = false) {
+  if (!tracking || (once && counted.has(what))) return;
+  counted.add(what);
+  const url = `https://${GOATCOUNTER}.goatcounter.com/count?` +
+    new URLSearchParams({ p: what, t: P.title, e: "true", rnd: Math.random().toString(36).slice(2) });
+  try { if (!(navigator.sendBeacon && navigator.sendBeacon(url))) new Image().src = url; } catch (e) { /* never break the puzzle */ }
+}
+
 // ---- Drawing ----------------------------------------------------------------
 const svg = document.getElementById("grid");
 const NS = "http://www.w3.org/2000/svg";
@@ -452,7 +476,10 @@ function act(name) {
   if (S.solved && kind !== "clear") return;
   if (kind === "check") checkCells(scope(what));
   if (kind === "reveal") {
-    if (what === "puzzle") return confirmBox("Reveal the whole puzzle?", "This shows every answer and stops the clock.", "Reveal", () => { revealCells(allCells); afterChange(); });
+    if (what === "puzzle") return confirmBox("Reveal the whole puzzle?", "This shows every answer and stops the clock.", "Reveal", () => {
+      count(`Revealed the whole puzzle on ${P.date}`, true); revealCells(allCells); afterChange();
+    });
+    count(`Revealed a ${what} on ${P.date}`, true);
     revealCells(scope(what));
   }
   if (kind === "clear") {
@@ -477,6 +504,7 @@ function checkDone() {
   if (right && !S.solved) {
     S.solved = true; stopClock(); save();
     const helped = allCells.some(([r, c]) => S.mark[r][c] === "revealed");
+    count(`Finished ${P.date} in ${fmt(S.elapsed)}${helped ? ", with reveals" : ""}`, true);
     openModal("Congratulations!",
       `<p>${helped ? "You finished the puzzle" : "You solved the puzzle"} in <b>${fmt(S.elapsed)}</b>.</p><div class="theme">${THEME}</div>`,
       [["Admire the grid", "pill", closeModal]]);
@@ -518,6 +546,16 @@ function setPaused(on) {
 document.getElementById("pauseBtn").addEventListener("click", () => setPaused(!paused));
 document.getElementById("resumeBtn").addEventListener("click", () => setPaused(false));
 document.addEventListener("visibilitychange", () => { if (document.hidden && !S.solved) setPaused(true); });
+// Leaving the page (closing it or switching away) with letters in but not finished.
+// Counted once per visit, so switching tabs back and forth doesn't add up.
+let leftCounted = false;
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden || S.solved || leftCounted) return;
+  const filled = allCells.filter(([r, c]) => S.fill[r][c]).length;
+  if (!filled) return;
+  leftCounted = true;
+  count(`Left ${P.date} unfinished (${Math.ceil(filled / allCells.length * 10) * 10}% filled, ${fmt(S.elapsed)})`);
+});
 
 // ---- Modal ------------------------------------------------------------------
 const modal = document.getElementById("modal");
@@ -629,6 +667,7 @@ document.addEventListener("keydown", e => {
   document.title = `${P.title} · Ricky's Crossword`;
 })();
 load();
+count(`Opened ${P.date}`, true);
 autoBox.checked = !!S.autocheck;
 goToWord("A", 0);
 showClock();
