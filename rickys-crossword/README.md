@@ -30,6 +30,30 @@ date go to earlier puzzles.
 - Phones and tablets get an on-screen keyboard, so the device's own keyboard never
   covers the grid.
 
+## Seeing who's playing
+
+The page can send a few anonymous events to [GoatCounter](https://www.goatcounter.com),
+a free, privacy-friendly counter, so you can check from anywhere whether the puzzles
+are being played. Each event names the puzzle's date:
+
+| Event | When it's sent |
+|---|---|
+| Opened 2026-11-14 | The puzzle is opened (once per visit) |
+| Finished 2026-11-14 in 12:34 | It's completed, with the time. ", with reveals" is added if any squares were revealed |
+| Revealed a square / word / the whole puzzle on 2026-11-14 | Reveal is used (each kind once per visit) |
+| Left 2026-11-14 unfinished (40% filled, 8:15) | The page is closed or switched away from with letters in but not finished (once per visit) |
+
+To switch it on:
+
+1. Sign up at goatcounter.com and choose a code name (for example `rickys-crossword`).
+   Your dashboard is then at `https://<code name>.goatcounter.com`.
+2. In `index.html`, put that code name in `const GOATCOUNTER = "";`.
+3. On your own phone and computer, open the crossword once with `?notrack` on the end of
+   the link, so your own visits aren't counted. `?track` turns counting back on.
+
+The events appear under "Pages" on the dashboard. A visit that's left unfinished and
+later finished shows up as both.
+
 ## How the daily puzzle is made
 
 Every evening a scheduled Claude Code routine makes the next day's puzzle and commits it
