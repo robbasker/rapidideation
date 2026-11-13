@@ -43,13 +43,12 @@ are being played. Each event names the puzzle's date:
 | Revealed a square / word / the whole puzzle on 2026-11-14 | Reveal is used (each kind once per visit) |
 | Left 2026-11-14 unfinished (40% filled, 8:15) | The page is closed or switched away from with letters in but not finished (once per visit) |
 
-To switch it on:
+The dashboard is at https://rbaskerville1980.goatcounter.com. The code name is set in
+`const GOATCOUNTER` near the top of the script in `index.html`; empty it to switch
+counting off.
 
-1. Sign up at goatcounter.com and choose a code name (for example `rickys-crossword`).
-   Your dashboard is then at `https://<code name>.goatcounter.com`.
-2. In `index.html`, put that code name in `const GOATCOUNTER = "";`.
-3. On your own phone and computer, open the crossword once with `?notrack` on the end of
-   the link, so your own visits aren't counted. `?track` turns counting back on.
+On your own phone and computer, open the crossword once with `?notrack` on the end of
+the link, so your own visits aren't counted. `?track` turns counting back on.
 
 The events appear under "Pages" on the dashboard. A visit that's left unfinished and
 later finished shows up as both.
