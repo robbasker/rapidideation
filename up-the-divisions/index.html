@@ -206,6 +206,24 @@ const FORMS = {
 const STYLES = ['Defensive', 'Balanced', 'Attacking'];
 const STYLE_MOD = { Defensive: { a: .88, d: 1.12, tempo: .85 }, Balanced: { a: 1, d: 1, tempo: 1 }, Attacking: { a: 1.12, d: .88, tempo: 1.18 } };
 const SAVE_KEY = 'up-the-divisions-v1';
+// The cup: every club enters, four Premier clubs get a bye, and each round is played midweek after a league week.
+const CUP_NAME = 'Challenge Cup';
+const CUP_WEEKS = [3, 7, 11, 15, 18, 21];
+const CUP_ROUNDS = ['First round', 'Second round', 'Last 16', 'Quarter-final', 'Semi-final', 'Final'];
+const CUP_PRIZE = [3000, 8000, 20000, 50000, 120000, 300000]; // for winning each round
+// Facilities belong to the club. Levels 1 to 5.
+const FAC = { stadium: 'Stadium', training: 'Training ground', academy: 'Youth academy' };
+const FAC_DEFAULT = [4, 3, 2, 2, 1];             // what a club in each division usually has
+const FAC_UPG = [0, 30000, 80000, 200000, 500000]; // cost to go up from each level (Conference prices)
+const FAC_SCALE = [8, 4, 2, 1.4, 1];
+const TRAINING = {
+  Balanced: 'A bit of everything. No particular edge.',
+  Fitness: 'Players get back more fitness each week. Good for a busy run of games.',
+  Attacking: 'Sharper going forward in matches, a little looser at the back.',
+  Defending: 'Tighter at the back in matches, less threat going forward.',
+  Youth: 'The coaches work with the youngsters. Players aged 23 or under improve faster.',
+};
+const MAX_COACHES = 2, MAX_STAFF_SCOUTS = 2;
 
 const TOWNS = ['Ashbridge', 'Kelmouth', 'Brackenford', 'Calderholme', 'Dunmere', 'Eastwold', 'Felsworth', 'Gorrick', 'Hollinsbank',
   'Islethorpe', 'Jarrowby', 'Kingsmere', 'Lowbeck', 'Marlstone', 'Nethercombe', 'Oakhaven', 'Pellingham', 'Quarrington', 'Redmarsh',
@@ -265,7 +283,8 @@ function makePlayer(level, pos, age) {
   let potential = ability;
   if (age <= 23) potential = Math.round(clamp(ability + rand(0, 6 + (24 - age) * 3), ability, 96));
   const p = { id: S.nextId++, first: pick(FIRST), last: pick(LAST), pos, age, ability, potential, fitness: 100, morale: rint(55, 80),
-    form: [], know: 10, bias: rand(-1, 1), club: null, listed: false, injured: 0, suspended: 0, apps: 0, goals: 0, unpicked: 0, loanFrom: null, wage: 0 };
+    form: [], know: 10, bias: rand(-1, 1), club: null, listed: false, injured: 0, suspended: 0, apps: 0, goals: 0, unpicked: 0, loanFrom: null, wage: 0,
+    contract: rint(1, 4), assists: 0, rsum: 0, rn: 0, motm: 0 };
   p.wage = wageDemand(p);
   S.players[p.id] = p;
   return p;
@@ -318,7 +337,7 @@ function addFreeAgents(n) {
 
 function newWorld() {
   S = { v: 1, nextId: 1, season: 1996, week: 0, phase: 'preseason', players: {}, clubs: [], fixtures: [], free: [], inbox: [], msgId: 1,
-    po: null, review: null, sacked: null, lastResults: [], finalTables: null, user: null };
+    po: null, review: null, sacked: null, lastResults: [], finalTables: null, user: null, cup: null, cupHistory: [] };
   teamRatingCache.clear();
   const towns = shuffle([...TOWNS]);
   const used = new Set();
@@ -337,6 +356,98 @@ function newWorld() {
   addFreeAgents(30);
   makeFixtures();
   aiListings();
+  assignRivals();
+  S.cup = newCup();
+}
+
+// ----- Rivals: each club has one local rival, paired within its starting division.
+function assignRivals() {
+  for (let t = 0; t < 5; t++) {
+    const ids = shuffle(S.clubs.filter(c => c.tier === t).map(c => c.id));
+    for (let i = 0; i + 1 < ids.length; i += 2) { C(ids[i]).rival = ids[i + 1]; C(ids[i + 1]).rival = ids[i]; }
+  }
+}
+const isDerbyPair = (h, a) => C(h).rival === a;
+const isDerby = M => isDerbyPair(M.sides[0].club, M.sides[1].club);
+
+// ----- Facilities
+function facOf(c) {
+  if (!c.fac) { const l = FAC_DEFAULT[c.tier]; c.fac = { stadium: l, training: l, academy: l }; }
+  return c.fac;
+}
+const capMult = c => clamp(1 + .15 * (facOf(c).stadium - FAC_DEFAULT[c.tier]), .7, 1.6);
+const facCost = (c, k) => roundMoney(FAC_UPG[facOf(c)[k]] * FAC_SCALE[c.tier]);
+const staffCount = role => S.user.staff.filter(s => s.role === role).length;
+const maxScouts = () => MAX_SCOUTS + staffCount('Scout');
+
+// ----- The cup
+function cupDraw(ids) { const s = shuffle([...ids]), t = []; for (let i = 0; i + 1 < s.length; i += 2) t.push([s[i], s[i + 1]]); return t; }
+function newCup() {
+  const byes = shuffle(S.clubs.filter(c => c.tier === 0).map(c => c.id)).slice(0, 4);
+  return { round: 0, ties: cupDraw(S.clubs.map(c => c.id).filter(id => !byes.includes(id))), byes, results: [], winner: null, due: false };
+}
+const cupFinal = () => S.cup.round === CUP_ROUNDS.length - 1;
+function userCupTie() { return S.cup && S.cup.due ? S.cup.ties.find(f => f.includes(S.user.clubId)) || null : null; }
+function cupStatus() {
+  const cup = S.cup, id = S.user.clubId;
+  if (!cup) return `The ${CUP_NAME} starts next season.`;
+  if (cup.winner === id) return `You won the ${CUP_NAME}!`;
+  if (cup.winner != null) return `${C(cup.winner).name} won the ${CUP_NAME}.`;
+  const alive = cup.ties.some(f => f.includes(id)) || (cup.round === 0 && cup.byes.includes(id));
+  if (cup.round === 0 && cup.byes.includes(id)) return `You have a bye into the second round.`;
+  if (!alive) {
+    for (let r = cup.results.length - 1; r >= 0; r--) { const x = cup.results[r].find(f => f.h === id || f.a === id); if (x) return `Knocked out in the ${CUP_ROUNDS[r].toLowerCase()} by ${C(x.w).name}.`; }
+    return `You're not in the ${CUP_NAME} this season.`;
+  }
+  const f = cup.ties.find(f => f.includes(id)), opp = C(f[0] === id ? f[1] : f[0]);
+  return `${CUP_ROUNDS[cup.round]}: ${cupFinal() ? '' : f[0] === id ? 'home to ' : 'away at '}${cupFinal() ? `v ${opp.name} on neutral ground` : opp.name}, after week ${CUP_WEEKS[cup.round]}.`;
+}
+function playCupRound(userM) {
+  const cup = S.cup, r = cup.round, final = cupFinal(), out = [], next = r === 0 ? [...cup.byes] : [];
+  for (const [h, a] of cup.ties) {
+    const M = userM && userM.sides[0].club === h && userM.sides[1].club === a ? userM : simulate(newMatch(h, a, { kind: 'cup', neutral: final }));
+    applyMatch(M);
+    const w = M.sides[winnerSide(M)].club;
+    next.push(w);
+    out.push({ h, a, hg: M.sides[0].goals, ag: M.sides[1].goals, pens: M.pens ? `${Math.max(...M.pens.s)}-${Math.min(...M.pens.s)} pens` : '', w });
+  }
+  cup.results[r] = out; cup.due = false;
+  const mine = out.find(x => x.h === S.user.clubId || x.a === S.user.clubId);
+  if (final) { cup.winner = next[0]; cup.ties = []; S.cupHistory.unshift({ season: seasonLabel(S.season), w: next[0], r: out[0].w === out[0].h ? out[0].a : out[0].h }); }
+  else { cup.round++; cup.ties = cupDraw(next); }
+  if (mine) cupAftermath(mine, userM, r, final);
+  else if (final) mail(`${C(cup.winner).name} win the ${CUP_NAME}`, `They beat ${C(S.cupHistory[0].r).name} ${Math.max(out[0].hg, out[0].ag)}-${Math.min(out[0].hg, out[0].ag)}${out[0].pens ? ` (${out[0].pens})` : ''} in the final.`);
+  cleanLineup();
+}
+function cupAftermath(res, M, r, final) {
+  const u = S.user, club = me(), won = res.w === club.id, opp = C(res.h === club.id ? res.a : res.h);
+  const gf = res.h === club.id ? res.hg : res.ag, ga = res.h === club.id ? res.ag : res.hg, pens = res.pens ? ` (${res.pens})` : '';
+  const score = `${Math.max(gf, ga)}-${Math.min(gf, ga)}${pens}`;
+  let body = '';
+  if (res.h === club.id && !final) {
+    const crowd = Math.round(GATE[club.tier] * capMult(club) * (opp.tier < club.tier ? 1.2 + .15 * (club.tier - opp.tier) : .9) * (isDerbyPair(res.h, res.a) ? 1.4 : 1) * rand(.9, 1.1));
+    const gate = crowd * TICKET[club.tier]; u.bank += gate; noteCrowd(crowd, opp);
+    body += `A crowd of ${crowd.toLocaleString('en-GB')} paid ${money(gate)}. `;
+  }
+  if (M) matchMails(M);
+  if (won) {
+    u.bank += CUP_PRIZE[r];
+    const gap = club.tier - opp.tier;
+    if (gap >= 1) { u.rep = clamp(u.rep + 2 * gap, 0, 100); setConf(u.conf + 2 + gap); }
+    else setConf(u.conf + 1);
+    if (final) {
+      u.rep = clamp(u.rep + 8, 0, 100); setConf(u.conf + 15);
+      u.trophies.push(`${CUP_NAME} winners ${seasonLabel(S.season)}`);
+      mail(`${CUP_NAME} winners!`, `You beat ${esc(opp.name)} ${score} in the final. ${money(CUP_PRIZE[r])} in prize money, and the town is partying.`);
+    } else {
+      const nf = S.cup.ties.find(f => f.includes(club.id)), nopp = C(nf[0] === club.id ? nf[1] : nf[0]);
+      mail(gap >= 1 ? 'Giant-killers!' : `Into the ${CUP_ROUNDS[r + 1].toLowerCase()}`, `${gap >= 1 ? `You knocked out ${esc(opp.name)} of the ${DIVS[opp.tier]}, ${score}.` : `You beat ${esc(opp.name)} ${score}.`} ${body}${money(CUP_PRIZE[r])} prize money. Next: ${S.cup.round === CUP_ROUNDS.length - 1 ? `the final against ${esc(nopp.name)}` : `${nf[0] === club.id ? 'home to' : 'away at'} ${esc(nopp.name)} (${DIV_SHORT[nopp.tier]})`}, after week ${CUP_WEEKS[S.cup.round]}.`);
+    }
+  } else {
+    const gap = opp.tier - club.tier;
+    if (gap >= 1) { setConf(u.conf - 3 - 2 * gap); u.rep = clamp(u.rep - gap, 0, 100); }
+    mail(gap >= 1 ? 'Cup upset' : `Out of the ${CUP_NAME}`, `${gap >= 1 ? `Knocked out by ${esc(opp.name)} of the ${DIVS[opp.tier]}, ${score}. The board are embarrassed.` : `${esc(opp.name)} beat you ${score}.`} ${body}`);
+  }
 }
 
 function roundRobin(ids) {
@@ -474,7 +585,8 @@ function newMatch(hId, aId, opts = {}) {
     const c = C(id), isMe = !!S.user && id === S.user.clubId;
     const xi = isMe ? S.user.lineup.map(x => ({ ...x })) : pickXI(c, c.formation, false);
     return { club: id, me: isMe, xi, style: isMe ? S.user.style : c.style, subs: 0, goals: 0, shots: 0, on: 0, played: xi.map(x => x.pid),
-      scorers: [], injured: [], reds: [] };
+      starters: xi.map(x => x.pid), roles: Object.fromEntries(xi.map(x => [x.pid, x.role])), scorers: [], injured: [], reds: [],
+      train: isMe ? S.user.training : 'Balanced', boost: 1, talk: null };
   };
   return { sides: [mk(hId), mk(aId)], minute: 0, neutral: !!opts.neutral, kind: opts.kind || 'league', log: [], done: false, pens: null, poss: 0 };
 }
@@ -491,8 +603,10 @@ function sideStrength(side) {
     else { a += e; m += .25 * e; }
   }
   if (!g) g = 15;
-  const s = STYLE_MOD[side.style];
-  return { g, d: d / 6 * s.d, m: m / 4.5, a: a / 3.6 * s.a };
+  const s = STYLE_MOD[side.style], b = side.boost || 1;
+  const ta = side.train === 'Attacking' ? 1.05 : side.train === 'Defending' ? .97 : 1;
+  const td = side.train === 'Defending' ? 1.05 : side.train === 'Attacking' ? .97 : 1;
+  return { g: g * b, d: d / 6 * s.d * td * b, m: m / 4.5 * b, a: a / 3.6 * s.a * ta * b };
 }
 function bench(M, i) {
   const side = M.sides[i];
@@ -501,7 +615,7 @@ function bench(M, i) {
 function makeSub(M, i, offPid, onPid, auto) {
   const side = M.sides[i], slot = side.xi.find(x => x.pid === offPid);
   if (!slot || side.subs >= 3) return false;
-  slot.pid = onPid; side.subs++; side.played.push(onPid);
+  slot.pid = onPid; side.subs++; side.played.push(onPid); if (side.roles) side.roles[onPid] = slot.role;
   M.log.push({ min: M.minute, side: i, cls: 'sub', text: `${auto ? '' : 'Substitution: '}${P(onPid).last} comes on for ${P(offPid).last}.` });
   return true;
 }
@@ -522,7 +636,10 @@ function shot(M, i, st) {
   const o = { p: sh.last, g: gkSlot ? P(gkSlot.pid).last : 'the stand-in keeper' };
   at.shots++;
   const r = Math.random();
-  if (r < q) { at.goals++; at.on++; at.scorers.push({ pid: sh.id, min: M.minute }); M.log.push({ min: M.minute, side: i, cls: 'goal', text: fill(pick(T_GOAL), o) }); }
+  if (r < q) {
+    const helpers = outfield.filter(x => x.pid !== sh.id);
+    const ast = helpers.length && chance(.75) ? weightedPick(helpers, x => ({ FW: 1.6, MF: 2, DF: .6 }[x.role]) * P(x.pid).ability).pid : null;
+    at.goals++; at.on++; at.scorers.push({ pid: sh.id, min: M.minute, ast }); M.log.push({ min: M.minute, side: i, cls: 'goal', text: fill(pick(T_GOAL), o) }); }
   else if (r < q + .3) { at.on++; M.log.push({ min: M.minute, side: i, cls: '', text: fill(pick(T_SAVE), o) }); }
   else if (r < q + .34) M.log.push({ min: M.minute, side: i, cls: '', text: fill(pick(T_POST), o) });
   else M.log.push({ min: M.minute, side: i, cls: 'q', text: fill(pick(T_MISS), o) });
@@ -555,7 +672,8 @@ function stepMinute(M) {
   if (M.minute === 45) M.log.push({ min: 45, side: -1, cls: 'ht', text: `HALF-TIME  ${M.sides[0].goals} - ${M.sides[1].goals}` });
   if (M.minute >= 90) {
     M.done = true;
-    if (M.kind === 'po' && M.sides[0].goals === M.sides[1].goals) penalties(M, st);
+    if ((M.kind === 'po' || M.kind === 'cup') && M.sides[0].goals === M.sides[1].goals) penalties(M, st);
+    rateMatch(M);
     M.log.push({ min: 90, side: -1, cls: 'ht', text: `FULL-TIME  ${M.sides[0].goals} - ${M.sides[1].goals}` });
     if (M.pens) M.log.push({ min: 90, side: -1, cls: 'ht', text: `${C(M.sides[M.pens.w].club).name.toUpperCase()} WIN ${Math.max(...M.pens.s)}-${Math.min(...M.pens.s)} ON PENALTIES` });
   }
@@ -566,6 +684,28 @@ function penalties(M, st) {
   const w = chance(.5 + clamp((k(st[0]) - k(st[1])) / 200, -.15, .15)) ? 0 : 1;
   const ws = rint(3, 5), ls = rint(Math.max(1, ws - 3), ws - 1);
   M.pens = { w, s: w === 0 ? [ws, ls] : [ls, ws] };
+}
+// Ratings out of 10 for everyone who played, and a man of the match.
+function rateMatch(M) {
+  M.ratings = {};
+  let best = null, bestR = 0;
+  M.sides.forEach((side, i) => {
+    const opp = M.sides[1 - i], res = Math.sign(side.goals - opp.goals);
+    for (const pid of side.played) {
+      const role = (side.roles && side.roles[pid]) || P(pid)?.pos || 'MF';
+      const goals = side.scorers.filter(s => s.pid === pid).length, ast = side.scorers.filter(s => s.ast === pid).length;
+      let r = 6.2 + rand(-.7, .8) + res * .4 + goals * .9 + ast * .5;
+      if (role === 'GK') r += opp.goals === 0 ? .7 : -(opp.goals - 1) * .35;
+      if (role === 'DF') r += opp.goals === 0 ? .4 : -Math.max(0, opp.goals - 1) * .15;
+      if (side.reds.includes(pid)) r -= 1.5;
+      if (side.starters && !side.starters.includes(pid)) r = 6 + (r - 6) * .6;
+      r = Math.round(clamp(r, 3.5, 10) * 10) / 10;
+      M.ratings[pid] = r;
+      const key = r + (res > 0 ? .3 : 0);
+      if (!side.reds.includes(pid) && key > bestR) { bestR = key; best = pid; }
+    }
+  });
+  M.motm = best;
 }
 function simulate(M) { while (!M.done) stepMinute(M); return M; }
 const winnerSide = M => M.sides[0].goals > M.sides[1].goals ? 0 : M.sides[1].goals > M.sides[0].goals ? 1 : M.pens ? M.pens.w : -1;
@@ -580,20 +720,26 @@ function applyMatch(M) {
       if (res === 'W') { s.w++; s.pts += 3; } else if (res === 'D') { s.d++; s.pts++; } else s.l++;
       s.form = (s.form + res).slice(-5);
     }
+    if (!M.ratings) rateMatch(M);
+    const derby = isDerby(M), swing = derby ? 8 : 4;
     for (const pid of side.played) {
       const p = P(pid); if (!p) continue;
       p.apps++; p.unpicked = 0;
       p.fitness = clamp(p.fitness - rint(9, 15), 30, 100);
-      const goals = side.scorers.filter(s => s.pid === pid).length;
-      let r = 6.3 + rand(-.6, .9) + (res === 'W' ? .4 : res === 'L' ? -.4 : 0) + goals * .8;
-      if (p.pos === 'GK') r += opp.goals === 0 ? .6 : -(opp.goals - 1) * .3;
-      p.form.push(Math.round(clamp(r, 4, 10) * 10) / 10);
-      if (p.form.length > 5) p.form.shift();
+      const r = M.ratings[pid] ?? 6;
+      p.form.push(r); if (p.form.length > 5) p.form.shift();
+      p.rsum = (p.rsum || 0) + r; p.rn = (p.rn || 0) + 1;
+      if (M.motm === pid) p.motm = (p.motm || 0) + 1;
+      p.morale = clamp(p.morale + (r >= 8 ? 3 : r < 5.5 ? -2 : 0), 5, 100);
+      if (side.me) {
+        const L = S.user.legends[pid] || (S.user.legends[pid] = { name: pname(p), apps: 0, goals: 0 });
+        L.apps++; L.goals += side.scorers.filter(s => s.pid === pid).length;
+      }
     }
-    for (const s of side.scorers) { const p = P(s.pid); if (p) p.goals++; }
+    for (const s of side.scorers) { const p = P(s.pid); if (p) p.goals++; const a = s.ast != null && P(s.ast); if (a) a.assists = (a.assists || 0) + 1; }
     for (const pid of side.injured) { const p = P(pid); if (p) p.injured = (chance(.15) ? rint(5, 10) : rint(1, 4)) + 1; }
-    for (const pid of side.reds) { const p = P(pid); if (p) p.suspended = 2; }
-    for (const pid of club.squad) { const p = P(pid); p.morale = clamp(p.morale + (res === 'W' ? 4 : res === 'L' ? -4 : 0), 5, 100); }
+    for (const pid of side.reds) { const p = P(pid); if (p) p.suspended = M.kind === 'cup' ? 1 : 2; }
+    for (const pid of club.squad) { const p = P(pid); p.morale = clamp(p.morale + (res === 'W' ? swing : res === 'L' ? -swing : 0), 5, 100); }
   });
 }
 
@@ -631,6 +777,7 @@ function boardAfterMatch(M) {
   let d = (pts - exp) * 2.6;
   if (S.week >= 6) { const pos = position(me()); if (pos > u.target.pos + 2) d -= 1.5; else if (pos <= u.target.pos) d += .7; }
   if (u.bank < 0) d -= 1.5;
+  if (isDerby(M)) d += pts === 3 ? 2.5 : pts === 0 ? -2.5 : 0;
   setConf(u.conf + d);
 }
 const repTier = () => { const r = S.user.rep; return r >= 85 ? 0 : r >= 65 ? 1 : r >= 45 ? 2 : r >= 25 ? 3 : 4; };
@@ -672,7 +819,7 @@ const wageBill = () => me().squad.reduce((s, id) => s + P(id).wage, 0);
 const windowOpen = () => S.phase === 'preseason' || (S.phase === 'season' && S.week <= WINDOW_LAST);
 function askingPrice(p) {
   const c = C(p.club), rank = c.squad.map(P).sort((a, b) => b.ability - a.ability).indexOf(p) + 1;
-  return roundMoney(value(p) * (p.listed ? .9 : rank <= 11 ? 1.6 : 1.25));
+  return roundMoney(value(p) * (p.listed ? .9 : rank <= 11 ? 1.6 : 1.25) * (p.contract <= 1 ? .7 : 1));
 }
 function demand(p) {
   const drop = Math.max(0, me().tier - playerTier(p));
@@ -687,6 +834,7 @@ function willJoin(p) {
 
 // ===================== The week =====================
 function userFixture() {
+  if (S.phase === 'season' && userCupTie()) return userCupTie();
   if (S.phase === 'season') {
     const rd = S.fixtures[me().tier][S.week - 1];
     return rd && rd.find(f => f.includes(S.user.clubId));
@@ -709,6 +857,10 @@ function finishWeek(userM) {
   }
   weekly(userM);
   S.week++;
+  if (S.cup && S.cup.winner == null && CUP_WEEKS[S.cup.round] === w) {
+    if (!S.sacked && S.cup.ties.some(f => f.includes(S.user.clubId))) S.cup.due = true;
+    else playCupRound(null);
+  }
   if (!S.sacked && S.week > WEEKS) startPlayoffs();
   if (S.sacked && S.week > WEEKS) S.pendingPlayoffs = true;
   save();
@@ -716,8 +868,22 @@ function finishWeek(userM) {
 function recordLastMatch(M) {
   const i = M.sides[0].club === S.user.clubId ? 0 : 1, my = M.sides[i], op = M.sides[1 - i];
   const sc = s => s.scorers.map(x => `${P(x.pid)?.last ?? '?'} ${x.min}'`).join(', ');
-  S.user.last = { home: i === 0, opp: op.club, gf: my.goals, ga: op.goals, mine: sc(my), theirs: sc(op), pens: M.pens ? (M.pens.w === i ? 'won' : 'lost') + ' on penalties' : '' };
+  S.user.last = { home: i === 0, opp: op.club, gf: my.goals, ga: op.goals, mine: sc(my), theirs: sc(op), pens: M.pens ? (M.pens.w === i ? 'won' : 'lost') + ' on penalties' : '',
+    kind: M.kind, derby: isDerby(M), motm: M.motm != null && P(M.motm) ? `${pname(P(M.motm))} (${C(P(M.motm).club).short}, ${M.ratings[M.motm]})` : '' };
+  const rec = S.user.rec, m = my.goals - op.goals, entry = { gf: my.goals, ga: op.goals, opp: C(op.club).name, season: seasonLabel(S.season) };
+  if (m > 0 && (!rec.win || m > rec.win.gf - rec.win.ga || (m === rec.win.gf - rec.win.ga && my.goals > rec.win.gf))) rec.win = entry;
+  if (m < 0 && (!rec.loss || -m > rec.loss.ga - rec.loss.gf || (-m === rec.loss.ga - rec.loss.gf && op.goals > rec.loss.ga))) rec.loss = entry;
+  if (isDerby(M)) { const d = S.user.derby; if (m > 0) d.w++; else if (m < 0) d.l++; else d.d++; }
   for (const pid of op.played) { const p = P(pid); if (p) p.know = Math.max(p.know, Math.min(55, p.know + 10)); }
+}
+function noteCrowd(n, opp) {
+  const rec = S.user.rec;
+  if (!rec.crowd || n > rec.crowd.n) rec.crowd = { n, opp: opp.name, club: me().name, season: seasonLabel(S.season) };
+}
+function matchMails(M) {
+  const mine = M.sides.find(s => s.me); if (!mine) return;
+  for (const pid of mine.injured) { const p = P(pid); if (p && p.injured > 0) mail(`${pname(p)} is injured`, `The physio says ${p.last} will be out for ${p.injured} week${p.injured > 1 ? 's' : ''}.`); }
+  for (const pid of mine.reds) { const p = P(pid); if (p) mail(`${pname(p)} is suspended`, `${p.last} will miss the next match after the red card.`); }
 }
 function recover() {
   for (const id in S.players) {
@@ -733,18 +899,25 @@ function weekly(userM) {
   // Money
   const home = userM && userM.sides[0].club === club.id;
   const pos = position(club);
-  const gate = home ? Math.round(GATE[club.tier] * (.8 + .4 * (13 - pos) / 12) * rand(.9, 1.1)) : 0;
+  const gate = home ? Math.round(GATE[club.tier] * capMult(club) * (.8 + .4 * (13 - pos) / 12) * (isDerby(userM) ? 1.4 : 1) * rand(.9, 1.1)) : 0;
+  if (gate) noteCrowd(gate, C(userM.sides[1].club));
   const income = gate * TICKET[club.tier] + TV[club.tier];
   const wages = wageBill();
   u.bank += income - wages - COSTS[club.tier];
   u.lastWeek = { crowd: gate, gateMoney: gate * TICKET[club.tier], tv: TV[club.tier], wages, costs: COSTS[club.tier] };
-  // Staff get to know the squad
-  for (const pid of club.squad) { const p = P(pid); p.know = Math.min(95, p.know + 5); }
+  // Staff get to know the squad. Training: fitness, and young players with potential coming on.
+  const tlvl = facOf(club).training, coaches = staffCount('Coach');
+  const extraFit = (tlvl - 1) + (u.training === 'Fitness' ? 6 : 0);
+  const grow = .012 * tlvl * (u.training === 'Youth' ? 2.2 : 1) * (1 + .4 * coaches);
+  for (const pid of club.squad) {
+    const p = P(pid); p.know = Math.min(95, p.know + 5);
+    p.fitness = Math.min(100, p.fitness + extraFit);
+    if (p.age <= 23 && p.potential > p.ability && chance(grow)) p.ability++;
+  }
   // Injuries from the match, and anyone who can't play
   if (userM) {
     const mine = userM.sides.find(s => s.me);
-    for (const pid of mine.injured) { const p = P(pid); if (p && p.injured > 0) mail(`${pname(p)} is injured`, `The physio says ${p.last} will be out for ${p.injured} week${p.injured > 1 ? 's' : ''}.`); }
-    for (const pid of mine.reds) { const p = P(pid); if (p) mail(`${pname(p)} is suspended`, `${p.last} will miss the next match after the red card.`); }
+    matchMails(userM);
     for (const pid of club.squad) {
       const p = P(pid);
       if (mine.played.includes(pid)) continue;
@@ -758,10 +931,23 @@ function weekly(userM) {
   // Scout reports
   for (const pid of u.scouting) {
     const p = P(pid); if (!p) continue;
-    p.know = Math.max(p.know, 75);
+    p.know = Math.max(p.know, 75 + 5 * staffCount('Scout'));
     mail(`Scout report: ${pname(p)}`, `${POS_NAME[p.pos]}, ${p.age}, ${p.club != null ? C(p.club).name : 'free agent'}. Rated ${estimate(p).lo}–${estimate(p).hi}. ${potentialWord(p)}. "${opinion(p)}"`, { pid });
   }
   u.scouting = [];
+  // Contracts
+  const expiring = club.squad.map(P).filter(p => p.loanFrom == null && p.contract <= 1);
+  if ((S.week === 6 || S.week === 16) && expiring.length) mail('Contracts running out', `${expiring.map(pname).join(', ')} ${expiring.length > 1 ? 'are' : 'is'} out of contract this summer. Offer new deals from the player pages, or they'll leave for nothing.`);
+  for (const m of S.inbox) if (m.kind === 'raise' && !m.done && S.week >= m.expires) { m.done = true; m.result = 'You never answered. The player took it badly.'; const p = P(m.pid); if (p) p.morale = clamp(p.morale - 10, 5, 100); }
+  const raisePending = S.inbox.some(m => m.kind === 'raise' && !m.done);
+  for (const p of raisePending ? [] : club.squad.map(P)) {
+    if (p.loanFrom != null || p.raiseAsked === S.season || p.rn < 8 || p.form.length < 3 || +formAvg(p) < 7) continue;
+    const want = Math.max(Math.round(wageDemand(p) * 1.1 / 10) * 10, Math.round(p.wage * 1.25 / 10) * 10);
+    if (!chance(.12)) continue;
+    p.raiseAsked = S.season;
+    mail(`${pname(p)} wants a pay rise`, `${p.last} has been in fine form and wants ${money(want)} a week, up from ${money(p.wage)}, on a new deal to summer ${S.season + 3}.`, { kind: 'raise', pid: p.id, want, expires: S.week + 3 });
+    break;
+  }
   // Transfer business
   if (windowOpen()) aiBids();
   if (S.week === WINDOW_LAST - 2) mail('Transfer deadline approaching', `The transfer window closes after week ${WINDOW_LAST}. Any deals must be done before then.`);
@@ -793,7 +979,22 @@ function acceptBid(mid) {
   const to = C(m.from);
   sign(p, to); p.know = Math.min(p.know, 60); trim(to);
   u.bank += m.fee; u.tb += Math.round(m.fee * .5);
+  if (!u.rec.sale || m.fee > u.rec.sale.fee) u.rec.sale = { name: pname(p), fee: m.fee, to: to.name, season: seasonLabel(S.season) };
   m.done = true; m.result = `Sold to ${to.name} for ${money(m.fee)}. Half the fee goes into your transfer budget.`;
+  save(); render();
+}
+function agreeRaise(mid) {
+  const m = S.inbox.find(x => x.id === mid), p = P(m.pid), u = S.user;
+  if (!p || p.club !== u.clubId || m.done) { m.done = true; m.result = 'Too late: that has moved on.'; return render(); }
+  if (wageBill() - p.wage + m.want > u.wb) return toast(`That would take you over your wage budget of ${money(u.wb)}.`);
+  p.wage = m.want; p.contract = Math.max(p.contract, 3); p.morale = clamp(p.morale + 10, 5, 100);
+  m.done = true; m.result = `Agreed. ${p.last} is on ${money(m.want)} a week until summer ${contractEnd(p)}.`;
+  save(); render();
+}
+function refuseRaise(mid) {
+  const m = S.inbox.find(x => x.id === mid), p = P(m.pid);
+  if (p) p.morale = clamp(p.morale - 15, 5, 100);
+  m.done = true; m.result = p ? `You said no. ${p.last} is sulking.` : 'You said no.';
   save(); render();
 }
 function rejectBid(mid) { const m = S.inbox.find(x => x.id === mid); m.done = true; m.result = 'You turned the offer down.'; save(); render(); }
@@ -847,7 +1048,20 @@ function endSeason() {
   u.history.push({ season: label, club: club.name, tier: t, pos, note });
   if (champs) u.trophies.push(`${DIVS[t]} champions ${label}`);
   if (poWin) u.trophies.push(`${DIVS[t]} play-off winners ${label}`);
-  S.review = { label, tier: t, nextTier: null, pos, promoted, relegated, champs, poWin, met, target: u.target.text, prize, conf: u.conf, retired: [], youth: [], offers: [], verdict: '' };
+  for (const m of S.inbox) if ((m.kind === 'raise' || m.kind === 'bid') && !m.done) { m.done = true; m.result = 'Overtaken by the end of the season.'; }
+  S.review = { label, tier: t, nextTier: null, pos, promoted, relegated, champs, poWin, met, target: u.target.text, prize, conf: u.conf, retired: [], youth: [], offers: [], verdict: '',
+    prospects: [], staffOffers: [], leftFree: [], national: false };
+  // Awards
+  const sq = club.squad.map(P);
+  const ts = [...sq].sort((a, b) => b.goals - a.goals)[0];
+  if (ts && ts.goals > 0) {
+    S.review.topScorer = `${pname(ts)}, ${ts.goals} goal${ts.goals > 1 ? 's' : ''}`;
+    if (!u.rec.goals || ts.goals > u.rec.goals.n) u.rec.goals = { name: pname(ts), n: ts.goals, club: club.name, season: label };
+  }
+  const pots = sq.filter(p => p.rn >= 6).sort((a, b) => b.rsum / b.rn - a.rsum / a.rn)[0];
+  if (pots) S.review.pots = `${pname(pots)}, average rating ${(pots.rsum / pots.rn).toFixed(1)}`;
+  const boot = S.clubs.filter(c => c.tier === t).flatMap(c => c.squad.map(P)).sort((a, b) => b.goals - a.goals)[0];
+  if (boot && boot.goals > 0) S.review.boot = `${pname(boot)} (${C(boot.club).name}), ${boot.goals} goals`;
   S.review.verdict = relegated ? 'The board are furious about relegation.'
     : met ? (promoted ? 'The chairman is overjoyed. The whole town is celebrating.' : 'The board are pleased: you hit your target.')
     : 'The board are disappointed. You missed the target they set.';
@@ -860,19 +1074,35 @@ function endSeason() {
     const p = S.players[id];
     if (p.loanFrom != null) { const parent = C(p.loanFrom), wasMine = p.club === u.clubId; p.loanFrom = null; sign(p, parent); if (wasMine) mail(`${pname(p)} returns to ${parent.name}`, 'The loan has ended.'); }
   }
+  // Contracts run down. Yours leave for nothing if you didn't renew them; other clubs keep most of theirs.
+  for (const id of Object.keys(S.players)) {
+    const p = S.players[id];
+    if (p.club == null) continue;
+    p.contract--;
+    if (p.contract > 0) continue;
+    if (p.club === u.clubId) { S.review.leftFree.push(pname(p)); toFree(p); }
+    else if (chance(.75)) p.contract = rint(1, 3);
+    else toFree(p);
+  }
+  const fac = facOf(club), coaches = staffCount('Coach');
   for (const id of Object.keys(S.players)) {
     const p = S.players[id];
     p.age++;
     let dlt = p.age <= 21 ? rand(0, 5) : p.age <= 24 ? rand(0, 3) : p.age <= 29 ? rand(-1.5, 1) : p.age <= 32 ? rand(-3, 0) : rand(-5, -1);
     if (dlt > 0 && p.potential <= p.ability) dlt *= .2;
     if (p.age <= 23 && p.apps >= 10) dlt += 1;
+    if (p.club === u.clubId) dlt *= dlt > 0 ? 1 + .1 * (fac.training - 1) + .1 * coaches : 1 - .07 * (fac.training - 1);
     let ab = p.ability + dlt;
     if (dlt > 0) ab = Math.min(ab, Math.max(p.potential, p.ability));
     p.ability = Math.round(clamp(ab, 10, 97));
-    p.apps = 0; p.goals = 0; p.form = []; p.unpicked = 0; p.fitness = 100; p.injured = 0; p.suspended = 0;
+    p.apps = 0; p.goals = 0; p.assists = 0; p.rsum = 0; p.rn = 0; p.motm = 0; p.form = []; p.unpicked = 0; p.fitness = 100; p.injured = 0; p.suspended = 0;
     if (p.club !== u.clubId) p.know = Math.round(p.know * .85);
     if ((p.age >= 35 && chance(.5)) || p.age >= 37) {
-      if (p.club === u.clubId) S.review.retired.push(pname(p));
+      if (p.club === u.clubId) {
+        S.review.retired.push(pname(p));
+        const L = u.legends[p.id];
+        if ((L && L.apps >= 15) || p.ability >= TIER_BASE[t] - 3) S.review.staffOffers.push({ name: pname(p), role: p.pos === 'GK' || chance(.5) ? 'Coach' : 'Scout', hired: false });
+      }
       removePlayer(p);
     }
   }
@@ -891,13 +1121,15 @@ function endSeason() {
     }
     topUp(c); trim(c, 20);
   }
-  // Youth intake
-  for (let i = 0; i < 2; i++) {
-    const p = makePlayer(TIER_BASE[me().tier] - 10, pick(POSS), rint(16, 17));
-    p.potential = Math.min(96, p.ability + rint(5, 35)); p.know = 30;
-    sign(p, me());
-    S.review.youth.push(`${pname(p)} (${p.pos})${p.potential > TIER_BASE[me().tier] + 8 ? ': the youth coach is excited about this one' : ''}`);
+  // Youth intake: prospects from the academy, for you to sign or let go
+  const alvl = fac.academy;
+  for (let i = 0; i < 2 + Math.floor(alvl / 2); i++) {
+    const p = makePlayer(TIER_BASE[me().tier] - 13 + alvl * 1.5, pick(POSS), rint(16, 17));
+    p.potential = Math.min(96, p.ability + rint(5, 20 + alvl * 5)); p.know = 60; p.contract = 3; p.wage = Math.max(80, Math.round(p.wage * .6 / 10) * 10);
+    p.prospect = true;
+    S.review.prospects.push(p.id);
   }
+  if (me().squad.length < MIN_SQUAD) { topUp(me()); mail('Trialists signed', `With players gone, the club signed some trialists to make up the numbers.`); }
   // Free agents: drop the old and the poor, add new faces
   S.free.map(P).filter(p => p.age >= 34 || chance(.3)).forEach(removePlayer);
   S.free.map(P).sort((a, b) => b.ability - a.ability).slice(40).forEach(removePlayer);
@@ -906,10 +1138,33 @@ function endSeason() {
   S.phase = 'summer';
   if (!met && u.conf < 35) sackManager(`${S.review.verdict} After a season that fell short, they have decided you are not the right person to take ${club.name} forward.`);
   else if (repTier() < me().tier && chance(.65)) S.review.offers = genOffers(me().tier, false);
+  if (!S.sacked && u.rep >= 90 && u.trophies.some(x => x.startsWith(`${DIVS[0]} champions`))) S.review.national = true;
+}
+function signProspect(pid) {
+  const p = P(pid);
+  if (!p || !p.prospect) return;
+  if (me().squad.length >= MAX_SQUAD) return toast(`Your squad is full (${MAX_SQUAD}). Release someone first.`);
+  sign(p, me()); p.prospect = false; p.homegrown = true;
+  S.review.youth.push(pname(p));
+  save(); render();
+}
+function hireStaff(i) {
+  const o = S.review.staffOffers[i], max = o.role === 'Coach' ? MAX_COACHES : MAX_STAFF_SCOUTS;
+  if (staffCount(o.role) >= max) return toast(`You already have ${max} ex-players as ${o.role.toLowerCase()}es.`);
+  S.user.staff.push({ name: o.name, role: o.role, since: seasonLabel(S.season) });
+  o.hired = true; save(); render();
+}
+function acceptNational() {
+  const u = S.user;
+  u.trophies.push(`Appointed national team manager ${seasonLabel(S.season + 1)}`);
+  u.history.push({ season: seasonLabel(S.season + 1), club: 'National team', tier: 0, pos: null, note: 'Appointed manager' });
+  S.ended = true; save(); render();
 }
 function newSeason() {
   const u = S.user;
+  for (const id of Object.keys(S.players)) if (S.players[id].prospect) removePlayer(S.players[id]);
   S.season++; S.week = 0; S.phase = 'preseason'; S.po = null; S.review = null; S.finalTables = null; S.lastResults = [];
+  S.cup = newCup();
   for (const c of S.clubs) c.st = blankSt();
   makeFixtures(); aiListings();
   const club = me();
@@ -927,7 +1182,7 @@ function newSeason() {
 function scout(pid) {
   const u = S.user;
   if (u.scouting.includes(pid)) return;
-  if (u.scouting.length >= MAX_SCOUTS) return toast(`Your scouts are all busy. They'll report back next week.`);
+  if (u.scouting.length >= maxScouts()) return toast(`Your scouts are all busy. They'll report back next week.`);
   u.scouting.push(pid); save(); toast(`Scout sent. Report next week.`); openPlayer(pid); render();
 }
 function answer(html) { const el = document.getElementById('answer'); if (el) el.innerHTML = html; }
@@ -942,8 +1197,9 @@ function makeBid(pid) {
   if (wageBill() + wage > u.wb) return answer(`${p.last} wants ${money(wage)} a week. That would take you over your wage budget of ${money(u.wb)}.`);
   const ask = askingPrice(p);
   if (fee >= ask) {
-    sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40);
+    sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40); p.contract = p.age >= 31 ? 2 : 3;
     u.tb -= fee; u.bank -= fee; topUp(club);
+    if (!u.rec.sign || fee > u.rec.sign.fee) u.rec.sign = { name: pname(p), fee, from: club.name, season: seasonLabel(S.season) };
     mail(`${pname(p)} signs`, `${p.last} joins from ${club.name} for ${money(fee)}, on ${money(wage)} a week.`);
     save(); render(); openPlayer(pid);
     return answer(`<b class="good">Deal done!</b> ${p.last} signs for ${money(fee)} on ${money(wage)} a week.`);
@@ -958,7 +1214,7 @@ function signFree(pid) {
   if (!willJoin(p)) return answer(`${p.last} is holding out for a bigger club.`);
   const wage = demand(p);
   if (wageBill() + wage > u.wb) return answer(`${p.last} wants ${money(wage)} a week. That would take you over your wage budget of ${money(u.wb)}.`);
-  sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40);
+  sign(p, me()); p.wage = wage; p.know = Math.max(p.know, 40); p.contract = p.age >= 31 ? 1 : 2;
   mail(`${pname(p)} signs`, `${p.last} joins on a free transfer, on ${money(wage)} a week.`);
   save(); render(); openPlayer(pid);
   answer(`<b class="good">Signed!</b> ${p.last} joins on ${money(wage)} a week.`);
@@ -978,8 +1234,21 @@ function askLoan(pid) {
   answer(`<b class="good">Loan agreed.</b> ${p.last} is yours until the summer.`);
 }
 function toggleList(pid) { const p = P(pid); p.listed = !p.listed; save(); render(); openPlayer(pid); }
+const contractEnd = p => S.season + p.contract + (S.phase === 'summer' ? 1 : 0);
+const renewWage = p => Math.max(p.wage, Math.round(wageDemand(p) * (p.morale >= 60 ? 1 : 1.15) / 10) * 10);
+function renewContract(pid) {
+  const p = P(pid), u = S.user;
+  if (p.contract >= 3) return answer(`${p.last} already has a deal until summer ${contractEnd(p)}.`);
+  if (p.morale < 25) return answer(`${p.last} is unhappy and won't talk about a new deal.`);
+  if (p.ability > TIER_BASE[me().tier] + 14 && p.age < 31) return answer(`${p.last} wants to play at a higher level and won't sign.`);
+  const wage = renewWage(p);
+  if (wageBill() - p.wage + wage > u.wb) return answer(`${p.last} wants ${money(wage)} a week. That would take you over your wage budget of ${money(u.wb)}.`);
+  p.wage = wage; p.contract = 3; p.morale = clamp(p.morale + 5, 5, 100);
+  save(); render(); openPlayer(pid);
+  answer(`<b class="good">Signed!</b> ${p.last} is on ${money(wage)} a week until summer ${contractEnd(p)}.`);
+}
 function releasePlayer(pid, confirmed) {
-  const p = P(pid), cost = p.wage * 8;
+  const p = P(pid), cost = p.wage * Math.min(30, 10 * Math.max(1, p.contract));
   if (me().squad.length <= MIN_SQUAD) return toast(`You need at least ${MIN_SQUAD} players.`);
   if (!confirmed) return askConfirm(`Release ${esc(pname(p))}? Paying up the contract costs ${money(cost)}.`, 'Release', () => releasePlayer(pid, true));
   S.user.bank -= cost; toFree(p); p.know = Math.min(p.know, 60);
@@ -1001,7 +1270,7 @@ function playNext() {
   const iss = lineupIssues();
   if (iss.length) return openModal(`<h2>Team selection</h2><p>${iss.join(' ')}</p><div class="row"><button class="btn go" onclick="autoPick();closeModal();playNext()">Let the assistant pick and play</button><button class="btn" onclick="closeModal();go('squad')">Pick the team myself</button></div>`);
   const [h, a] = userFixture();
-  MM = newMatch(h, a, S.phase === 'playoffs' ? { kind: 'po', neutral: S.po.round === 2 } : {});
+  MM = newMatch(h, a, S.phase === 'playoffs' ? { kind: 'po', neutral: S.po.round === 2 } : userCupTie() ? { kind: 'cup', neutral: cupFinal() } : {});
   view = 'match'; MM.paused = false; window.scrollTo(0, 0); render(); runMatch();
 }
 function runMatch() {
@@ -1017,6 +1286,20 @@ function runMatch() {
 function skipMatch() { clearInterval(timer); while (!MM.done) stepMinute(MM); MM.paused = false; MM.half = false; render(); }
 function setSpeed(s) { speed = s; if (MM && !MM.paused) runMatch(); render(); }
 function pauseMatch() { MM.paused = !MM.paused; MM.half = false; if (!MM.paused) runMatch(); else clearInterval(timer); render(); }
+function teamTalk(kind) {
+  const mi = MM.sides.findIndex(x => x.me), mine = MM.sides[mi], d = mine.goals - MM.sides[1 - mi].goals;
+  if (mine.talk) return;
+  let boost, text;
+  if (kind === 'praise') [boost, text] = d > 0 ? [1.04, 'The players lap it up and go out full of confidence.'] : d === 0 ? [1.02, 'A bit of encouragement. They look up for it.'] : [.98, 'Praise, at this score? The players look at each other and seem to switch off.'];
+  else if (kind === 'calm') [boost, text] = d < -1 ? [1, 'You go over the plan calmly. They nod, but there is no fire.'] : [1.02, 'You keep it calm and go over the plan. Heads are clear.'];
+  else if (d < 0) [boost, text] = chance(.65) ? [1.07, 'The teacups fly! The players come out fired up.'] : [.96, 'The hairdryer treatment backfires. Heads drop.'];
+  else if (d === 0) [boost, text] = chance(.5) ? [1.04, 'A few home truths. The players look stung, in a good way.'] : [.97, 'The rollicking goes down badly. A couple of players look sulky.'];
+  else [boost, text] = [.95, 'A rollicking when you are winning? The players are baffled.'];
+  mine.boost = boost; mine.talk = kind;
+  for (const x of mine.xi) { const p = P(x.pid); p.morale = clamp(p.morale + (boost > 1 ? 3 : boost < 1 ? -3 : 0), 5, 100); }
+  MM.log.push({ min: 45, side: mi, cls: 'sub', text: `Team talk: ${text}` });
+  render();
+}
 function matchStyle(s) { MM.sides.find(x => x.me).style = s; S.user.style = s; render(); }
 function matchSub() {
   const i = MM.sides.findIndex(x => x.me), off = +document.getElementById('subOff').value, on = +document.getElementById('subOn').value;
@@ -1026,7 +1309,7 @@ function matchSub() {
 function endMatch() {
   clearInterval(timer);
   recordLastMatch(MM);
-  if (MM.kind === 'po') playPoRound(MM); else finishWeek(MM);
+  if (MM.kind === 'po') playPoRound(MM); else if (MM.kind === 'cup') { playCupRound(MM); save(); } else finishWeek(MM);
   MM = null; view = 'main'; tab = 'home'; window.scrollTo(0, 0); render();
 }
 function autoPick(form) {
@@ -1048,6 +1331,16 @@ function setRole(pid, role) {
   save(); render();
 }
 function setStyle(s) { S.user.style = s; save(); render(); }
+function setTraining(t) { S.user.training = t; save(); render(); }
+function upgradeFac(k, confirmed) {
+  const club = me(), cost = facCost(club, k), u = S.user;
+  if (facOf(club)[k] >= 5) return;
+  if (u.bank < cost) return toast(`You need ${money(cost)} in the bank.`);
+  if (!confirmed) return askConfirm(`Spend ${money(cost)} upgrading the ${FAC[k].toLowerCase()} to level ${facOf(club)[k] + 1}?`, 'Upgrade', () => upgradeFac(k, true));
+  u.bank -= cost; facOf(club)[k]++;
+  mail(`${FAC[k]} upgraded`, `The work is done. ${facText(k, club)}`);
+  save(); render();
+}
 function go(t) { tab = t; window.scrollTo(0, 0); render(); }
 function readAll() { S.inbox.forEach(m => m.read = true); }
 function continueAfterSack() {
@@ -1058,6 +1351,19 @@ function continueAfterSack() {
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } }
 function validSave(s) { return s && s.v === 1 && s.user && s.clubs && s.players ? s : null; }
 function load() { try { return validSave(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
+// Fill in anything added since the save was made.
+function migrate(s) {
+  S = s;
+  for (const c of S.clubs) facOf(c);
+  if (S.clubs.some(c => c.rival == null)) assignRivals();
+  for (const id in S.players) { const p = S.players[id]; p.contract ??= rint(1, 4); p.assists ??= 0; p.rsum ??= 0; p.rn ??= 0; p.motm ??= 0; }
+  const u = S.user;
+  u.training ??= 'Balanced'; u.staff ??= []; u.rec ??= {}; u.legends ??= {}; u.derby ??= { w: 0, d: 0, l: 0 };
+  if (S.cup === undefined) S.cup = S.phase === 'preseason' || (S.phase === 'season' && S.week <= CUP_WEEKS[0]) ? newCup() : null;
+  S.cupHistory ??= [];
+  if (S.review) { S.review.prospects ??= []; S.review.staffOffers ??= []; S.review.leftFree ??= []; }
+  return S;
+}
 
 // Backups: download the career as a file, and load one back (also moves a career to another device).
 function exportSave() {
@@ -1079,7 +1385,7 @@ function importSave() {
       if (!s) return toast("That file isn't an Up the Divisions backup.");
       const go = () => {
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked: still play it this session */ }
-        startOptions = null; S = s; teamRatingCache.clear(); view = 'main'; tab = 'home'; render();
+        startOptions = null; migrate(s); teamRatingCache.clear(); view = 'main'; tab = 'home'; render();
         toast(`Welcome back, ${s.user.name}.`);
       };
       if (view === 'main' || load()) askConfirm(`Load the backup of ${esc(s.user.name)}'s career (${esc(seasonLabel(s.season))})? It replaces the career you have now.`, 'Load backup', go);
@@ -1103,16 +1409,17 @@ function barHTML() {
 function navHTML() {
   const unread = S.inbox.filter(m => !m.read).length;
   const t = (k, l) => `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')">${l}${k === 'home' && unread && tab !== 'home' ? `<span class="dot">${unread}</span>` : ''}</button>`;
-  return t('home', 'Home') + t('squad', 'Squad') + t('transfers', 'Transfers') + t('league', 'League') + t('office', 'Office');
+  return t('home', 'Home') + t('squad', 'Squad') + t('transfers', 'Transfers') + t('league', 'League') + t('club', 'Club') + t('office', 'Office');
 }
 function render() {
   const bar = document.getElementById('bar'), nav = document.getElementById('nav'), app = document.getElementById('app');
   if (view === 'start') { bar.innerHTML = ''; bar.hidden = true; nav.innerHTML = ''; nav.hidden = true; app.innerHTML = startHTML(); return; }
   bar.hidden = false; bar.innerHTML = barHTML();
   if (view === 'match') { nav.hidden = true; app.innerHTML = matchHTML(); return; }
+  if (S.ended) { nav.hidden = true; app.innerHTML = finaleHTML(); return; }
   if (S.sacked) { nav.hidden = true; app.innerHTML = sackedHTML(); return; }
   nav.hidden = false; nav.innerHTML = navHTML();
-  app.innerHTML = { home: homeHTML, squad: squadHTML, transfers: transfersHTML, league: leagueHTML, office: officeHTML }[tab]();
+  app.innerHTML = { home: homeHTML, squad: squadHTML, transfers: transfersHTML, league: leagueHTML, club: clubHTML, office: officeHTML }[tab]();
   if (tab === 'home') { readAll(); save(); }
 }
 
@@ -1131,7 +1438,7 @@ function startHTML() {
     <div class="tele">CONFERENCE &gt; DIV 3 &gt; DIV 2 &gt; DIV 1 &gt; PREMIER</div>
     <p class="lede">Take a part-time club from the bottom of the pyramid to the top flight. Pick the team, wheel and deal in the transfer market, and keep the board happy. Lose too often and they'll show you the door.</p>
     <div class="startbox">
-    ${saved ? `<div class="card hero" style="text-align:left;margin-bottom:22px"><div class="spread"><div><div class="kicker">Saved career</div><b>${esc(saved.user.name)}</b>, ${saved.sacked ? 'out of work' : esc(saved.clubs[saved.user.clubId].name)} · ${seasonLabel(saved.season)}</div><button class="btn go" onclick="resume()">Continue</button></div></div>` : ''}
+    ${saved ? `<div class="card hero" style="text-align:left;margin-bottom:22px"><div class="spread"><div><div class="kicker">Saved career</div><b>${esc(saved.user.name)}</b>, ${saved.ended ? 'national team manager' : saved.sacked ? 'out of work' : esc(saved.clubs[saved.user.clubId].name)} · ${seasonLabel(saved.season)}</div><button class="btn go" onclick="resume()">Continue</button></div></div>` : ''}
     <div class="card" style="text-align:left"><div class="kicker">${saved ? 'Or start a new career' : 'New career'}</div>
       <label class="small dim" for="mgr">Your name</label><br><input type="text" id="mgr" maxlength="30" placeholder="Manager's name" style="width:min(320px,100%);margin:4px 0 14px;font-size:18px">
       <div class="small dim">Three Conference clubs need a manager. Pick one:</div>
@@ -1141,11 +1448,12 @@ function startHTML() {
     <p class="small dim" style="margin-top:14px">Have a backup file? <button class="btn sm" onclick="importSave()">Load a backup</button>${saved ? ` <button class="btn sm" onclick="exportSave()">Back up this career</button>` : ''}</p>
     </div></div>`;
 }
-function resume() { S = load(); teamRatingCache.clear(); view = 'main'; tab = 'home'; render(); }
+function resume() { migrate(load()); teamRatingCache.clear(); view = 'main'; tab = 'home'; render(); }
 function startCareer() {
   const name = (document.getElementById('mgr').value || '').trim() || 'The Gaffer';
   S.user = { name, clubId: pickClub, conf: 60, warned: 0, rep: 10, target: null, lineup: [], style: 'Balanced', bank: START_BANK[4], tb: TB_BASE[4], wb: 0,
-    scouting: [], history: [], trophies: [], last: null, lastWeek: null, prevClub: null };
+    scouting: [], history: [], trophies: [], last: null, lastWeek: null, prevClub: null,
+    training: 'Balanced', staff: [], rec: {}, legends: {}, derby: { w: 0, d: 0, l: 0 } };
   const club = me();
   for (const id in S.players) { const p = S.players[id]; p.know = p.club === club.id ? 45 : (p.club != null && C(p.club).tier === 4) ? 20 : 10; }
   for (const pid of club.squad) P(pid).listed = false;
@@ -1162,12 +1470,14 @@ function homeHTML() {
   return `<div class="grid"><div class="stack">${nextCard()}${lastCard()}
     <div class="card"><h3>Inbox</h3><div class="inbox">${S.inbox.length ? S.inbox.slice(0, 25).map(msgHTML).join('') : '<p class="dim">Nothing yet.</p>'}</div></div>
   </div><div class="stack">${boardCard()}
+    <div class="card"><div class="spread"><h3>${CUP_NAME}</h3><a href="#" class="small dim" onclick="leagueTier='cup';go('league');return false">The draw</a></div><p class="small" style="margin:0">${esc(cupStatus())}</p></div>
     <div class="card"><div class="spread"><h3>${DIVS[club.tier]}</h3><a href="#" class="small dim" onclick="leagueTier=null;go('league');return false">Full table</a></div>${tableHTML(club.tier, true)}</div>
   </div></div>`;
 }
 function msgHTML(m) {
   let act = '';
   if (m.kind === 'bid') act = m.done ? `<p class="dim">${m.result}</p>` : `<div class="row"><button class="btn sm go" onclick="acceptBid(${m.id})">Accept ${money(m.fee)}</button><button class="btn sm" onclick="rejectBid(${m.id})">Reject</button><button class="btn sm" onclick="openPlayer(${m.pid})">View player</button></div>`;
+  else if (m.kind === 'raise') act = m.done ? `<p class="dim">${m.result}</p>` : `<div class="row"><button class="btn sm go" onclick="agreeRaise(${m.id})">Agree ${money(m.want)}/wk</button><button class="btn sm" onclick="refuseRaise(${m.id})">Say no</button><button class="btn sm" onclick="openPlayer(${m.pid})">View player</button></div>`;
   else if (m.pid && P(m.pid)) act = `<div class="row"><button class="btn sm" onclick="openPlayer(${m.pid})">View player</button></div>`;
   return `<div class="msg ${m.read ? '' : 'new'}"><div class="spread"><b>${esc(m.title)}</b><span class="when">${m.when}</span></div><p>${m.body}</p>${act}</div>`;
 }
@@ -1189,19 +1499,21 @@ function nextCard() {
   }
   const [h, a] = fx, opp = C(h === club.id ? a : h), home = h === club.id;
   const iss = lineupIssues();
-  const label = S.phase === 'playoffs' ? (S.po.round === 1 ? 'Play-off semi-final' : 'Play-off final · neutral ground') : `Week ${S.week} of ${WEEKS} · ${home ? 'Home' : 'Away'}`;
+  const cupNow = S.phase === 'season' && !!userCupTie(), derby = isDerbyPair(h, a);
+  const label = (S.phase === 'playoffs' ? (S.po.round === 1 ? 'Play-off semi-final' : 'Play-off final · neutral ground')
+    : cupNow ? `${CUP_NAME} · ${CUP_ROUNDS[S.cup.round]} · ${cupFinal() ? 'neutral ground' : home ? 'Home' : 'Away'}` : `Week ${S.week} of ${WEEKS} · ${home ? 'Home' : 'Away'}`) + (derby ? ' · Derby day' : '');
   return `<div class="card hero"><div class="kicker">${label}</div>
     <div class="fixture"><div class="side">${badge(C(h))}${esc(C(h).name)}</div><div class="v">v</div><div class="side away">${esc(C(a).name)}${badge(C(a))}</div></div>
-    <p class="small dim">${esc(opp.name)}: ${ord(position(opp))} in the table${opp.st.form ? `, form ${opp.st.form.split('').join(' ')}` : ''}.</p>
-    <div class="quote">"${assistantPreview(opp.id)}" <span class="dim">(your assistant)</span></div>
+    <p class="small dim">${esc(opp.name)}: ${opp.tier !== club.tier ? `${DIVS[opp.tier]}, ` : ''}${ord(position(opp))} in the table${opp.st.form ? `, form ${opp.st.form.split('').join(' ')}` : ''}.</p>
+    <div class="quote">"${derby ? `It's ${esc(opp.name)}. The whole town has talked about nothing else all week. Beat them and the fans will love you.` : assistantPreview(opp.id)}" <span class="dim">(your assistant)</span></div>
     ${iss.length ? `<p class="warn small">${iss.join(' ')}</p>` : `<p class="small dim">Your team: ${formationOf(u.lineup)}, ${u.style.toLowerCase()}.</p>`}
     <div class="row"><button class="btn go" onclick="playNext()">Play match</button><button class="btn" onclick="go('squad')">Pick team</button></div></div>`;
 }
 function lastCard() {
   const L = S.user.last; if (!L || S.phase === 'preseason') return '';
   const opp = C(L.opp), res = L.gf > L.ga ? 'Won' : L.gf < L.ga ? 'Lost' : 'Drew';
-  return `<div class="card"><div class="kicker">Last result</div><div class="spread"><b>${res} ${L.gf}-${L.ga} ${L.home ? 'v' : 'at'} ${esc(opp.name)}${L.pens ? `, ${L.pens}` : ''}</b></div>
-    <p class="small dim">${L.mine ? 'Our scorers: ' + L.mine + '. ' : ''}${L.theirs ? 'Theirs: ' + L.theirs + '.' : ''}</p></div>`;
+  return `<div class="card"><div class="kicker">Last result${L.kind === 'cup' ? ` · ${CUP_NAME}` : L.kind === 'po' ? ' · Play-offs' : ''}${L.derby ? ' · Derby' : ''}</div><div class="spread"><b>${res} ${L.gf}-${L.ga} ${L.home ? 'v' : 'at'} ${esc(opp.name)}${L.pens ? `, ${L.pens}` : ''}</b></div>
+    <p class="small dim">${L.mine ? 'Our scorers: ' + L.mine + '. ' : ''}${L.theirs ? 'Theirs: ' + L.theirs + '.' : ''}${L.motm ? ` Man of the match: ${esc(L.motm)}.` : ''}</p></div>`;
 }
 function boardCard() {
   const u = S.user, club = me();
@@ -1219,8 +1531,12 @@ function reviewCard() {
     <p>${R.champs || R.promoted ? `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}. Next season: the ${DIVS[R.nextTier]}.` : R.relegated ? `You finished ${ord(R.pos)} and drop into the ${DIVS[R.nextTier]}.` : `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}.`}</p>
     <p><b>Target was:</b> ${R.target}. ${R.met ? '<span class="good">Achieved.</span>' : '<span class="bad">Missed.</span>'}</p>
     <div class="quote">${R.verdict}</div>
-    <p class="small dim">Prize money: ${money(R.prize)}.${R.retired.length ? ` Retired: ${R.retired.join(', ')}.` : ''}</p>
-    ${R.youth.length ? `<p class="small"><b>Youth intake:</b> ${R.youth.join('; ')}.</p>` : ''}
+    <p class="small dim">Prize money: ${money(R.prize)}.${R.retired.length ? ` Retired: ${R.retired.join(', ')}.` : ''}${R.leftFree.length ? ` Left when their contracts ran out: ${R.leftFree.join(', ')}.` : ''}</p>
+    ${R.pots || R.topScorer || R.boot ? `<h3 style="margin-top:14px">Awards</h3><div class="facts">${R.pots ? `<div><span>Your player of the season</span>${esc(R.pots)}</div>` : ''}${R.topScorer ? `<div><span>Your top scorer</span>${esc(R.topScorer)}</div>` : ''}${R.boot ? `<div><span>${DIVS[R.tier]} top scorer</span>${esc(R.boot)}</div>` : ''}</div>` : ''}
+    ${R.prospects.length ? `<h3 style="margin-top:14px">Youth intake</h3><p class="small dim">The academy has ${R.prospects.length} youngsters ready. Sign the ones you want; the rest are let go when pre-season starts.</p>
+      ${R.prospects.map(pid => { const p = P(pid); if (!p) return ''; return `<div class="spread msg"><span><a href="#" onclick="openPlayer(${p.id});return false" style="color:inherit"><b style="display:inline">${esc(pname(p))}</b></a> <span class="pos">${p.pos}</span> <span class="small dim">${p.age}</span> ${ratingHTML(p)} <span class="small ${p.potential > TIER_BASE[me().tier] + 6 ? 'good' : 'dim'}">${potentialWord(p)}</span></span>${p.prospect ? `<button class="btn sm go" onclick="signProspect(${p.id})">Sign · ${money(p.wage)}/wk</button>` : '<span class="tag scout">Signed</span>'}</div>`; }).join('')}` : ''}
+    ${R.staffOffers.length ? `<h3 style="margin-top:14px">Join the staff?</h3>${R.staffOffers.map((o, i) => `<div class="spread msg"><span><b style="display:inline">${esc(o.name)}</b> <span class="small dim">has retired and would like to join you as a ${o.role.toLowerCase()}. ${o.role === 'Coach' ? 'Helps players improve.' : 'Another scout, and sharper reports.'}</span></span>${o.hired ? '<span class="tag scout">Hired</span>' : `<button class="btn sm" onclick="hireStaff(${i})">Hire</button>`}</div>`).join('')}` : ''}
+    ${R.national ? `<div class="msg new" style="margin-top:14px"><b>The national team want you</b><p>The national association have watched your rise from the Conference to Premier Division champions. They want you to manage the national team. Accepting ends your club career, and this game.</p><div class="row"><button class="btn go" onclick="askConfirm('Take the national team job? This ends your club career.', 'Take the job', acceptNational)">Take the job</button><button class="btn" onclick="S.review.national=false;save();render()">Not yet</button></div></div>` : ''}
     ${offers}
     <div class="row" style="margin-top:12px"><button class="btn go" onclick="playNext()">Begin pre-season</button></div></div>`;
 }
@@ -1243,16 +1559,18 @@ function squadHTML() {
     const r = roleOf(p.id), out = p.injured || p.suspended;
     const sel = `<select aria-label="Role for ${esc(pname(p))}" onchange="setRole(${p.id},this.value)" ${out && !r ? 'disabled' : ''}>${['', ...POSS].map(x => `<option value="${x}" ${x === r ? 'selected' : ''}>${x || 'Reserve'}</option>`).join('')}</select>`;
     const tags = (p.injured ? `<span class="tag inj">Injured ${p.injured}w</span>` : '') + (p.suspended ? '<span class="tag inj">Suspended</span>' : '')
-      + (p.listed ? '<span class="tag list">Listed</span>' : '') + (p.loanFrom != null ? '<span class="tag loan">Loan</span>' : '') + (r && r !== p.pos ? '<span class="tag scout">Out of position</span>' : '');
+      + (p.listed ? '<span class="tag list">Listed</span>' : '') + (p.loanFrom != null ? '<span class="tag loan">Loan</span>' : '') + (p.homegrown ? '<span class="tag scout">Academy</span>' : '') + (r && r !== p.pos ? '<span class="tag scout">Out of position</span>' : '');
     return `<tr class="${r ? 'me' : ''}"><td>${sel}</td><td class="nm"><a href="#" onclick="openPlayer(${p.id});return false" style="color:inherit">${esc(pname(p))}</a></td><td class="pos">${p.pos}</td><td class="n">${p.age}</td>
-      <td>${ratingHTML(p)}</td><td class="n">${formAvg(p)}</td><td class="n ${p.fitness < 75 ? 'warn' : ''}">${p.fitness}%</td><td>${moraleWord(p.morale)}</td><td class="n">${p.apps}/${p.goals}</td><td>${tags}</td></tr>`;
+      <td>${ratingHTML(p)}</td><td class="n">${formAvg(p)}</td><td class="n ${p.fitness < 75 ? 'warn' : ''}">${p.fitness}%</td><td>${moraleWord(p.morale)}</td><td class="n">${p.apps}/${p.goals}/${p.assists}</td><td class="n ${p.loanFrom == null && p.contract <= 1 ? 'warn' : ''}">${p.loanFrom != null ? 'Loan' : `'${String(contractEnd(p) % 100).padStart(2, '0')}`}</td><td>${tags}</td></tr>`;
   }).join('');
   return `<div class="card hero"><div class="spread"><div><div class="kicker">Team selection</div><h2>${L.length}/11 picked · ${formationOf(L)}</h2></div>
     <div class="row"><select id="formPick" aria-label="Formation">${Object.keys(FORMS).map(f => `<option ${f === (u.form || '4-4-2') ? 'selected' : ''}>${f}</option>`).join('')}</select><button class="btn" onclick="autoPick()">Assistant picks</button></div></div>
     <div class="row" style="margin-top:6px"><span class="small dim">Style:</span><div class="seg">${STYLES.map(s => `<button class="${u.style === s ? 'on' : ''}" onclick="setStyle('${s}')">${s}</button>`).join('')}</div></div>
+    <div class="row" style="margin-top:8px"><span class="small dim">Training:</span><div class="seg">${Object.keys(TRAINING).map(t => `<button class="${u.training === t ? 'on' : ''}" onclick="setTraining('${t}')">${t}</button>`).join('')}</div></div>
+    <p class="small dim" style="margin-top:6px">${TRAINING[u.training]}</p>
     ${iss.length ? `<p class="warn small" style="margin-top:10px">${iss.join(' ')}</p>` : '<p class="good small" style="margin-top:10px">Team ready.</p>'}
     <p class="small dim">Set each player's role to put them in the side. Your formation follows from how many defenders, midfielders and forwards you pick. Players out of position play worse, and a goalkeeper outfield (or the reverse) is a disaster. The assistant picks using the ratings your staff can see, so the picks are only as good as their knowledge.</p></div>
-    <div class="card" style="margin-top:18px"><div class="tablewrap"><table class="t"><thead><tr><th>Role</th><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th class="n">Form</th><th class="n">Fit</th><th>Morale</th><th class="n">Apps/Gls</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="card" style="margin-top:18px"><div class="tablewrap"><table class="t"><thead><tr><th>Role</th><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th class="n">Form</th><th class="n">Fit</th><th>Morale</th><th class="n">Apps/Gls/Ast</th><th class="n">Deal to</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="small dim" style="margin-top:8px">${club.squad.length} players · wage bill ${money(wageBill())}/wk. Ratings show what your staff think: the solid bar is the least they'd expect, the faded part how much better the player might be.</p></div>`;
 }
 
@@ -1263,7 +1581,7 @@ function transfersHTML() {
   let list;
   if (tf.src === 'list') list = S.clubs.filter(c => c.id !== club.id).flatMap(c => c.squad.map(P).filter(p => p.listed));
   else if (tf.src === 'free') list = S.free.map(P).filter(Boolean);
-  else list = Object.values(S.players).filter(p => p.club !== club.id && (p.know >= 60 || u.scouting.includes(p.id)));
+  else list = Object.values(S.players).filter(p => p.club !== club.id && !p.prospect && (p.know >= 60 || u.scouting.includes(p.id)));
   if (tf.pos !== 'All') list = list.filter(p => p.pos === tf.pos);
   if (tf.real === 'yes' && tf.src !== 'scouted') list = list.filter(p => willJoin(p) && (p.club == null || askingPrice(p) <= u.tb * 1.5));
   list.sort((a, b) => estimate(b).c - estimate(a).c);
@@ -1277,7 +1595,7 @@ function transfersHTML() {
   return `<div class="grid"><div class="card hero"><div class="kicker">${open ? (S.phase === 'preseason' ? 'Transfer window open' : `Window closes after week ${WINDOW_LAST}`) : 'Transfer window closed'}</div>
       <h2>Transfer market</h2><p class="small dim">${open ? 'Scout players before you buy: an unscouted rating is a guess. Players at bigger clubs may not want to drop down to your level, and clubs ask a premium for players they rely on.' : 'You can still scout and plan. Signings reopen in pre-season.'}</p></div>
     <div class="card"><h3>Budgets</h3><div class="facts"><div><span>Transfer budget</span>${money(u.tb)}</div><div><span>Bank</span>${money(u.bank)}</div>
-      <div><span>Wages</span>${money(wageBill())} of ${money(u.wb)}/wk</div><div><span>Squad</span>${club.squad.length}/${MAX_SQUAD}</div><div><span>Scouts out</span>${u.scouting.length}/${MAX_SCOUTS}</div></div></div></div>
+      <div><span>Wages</span>${money(wageBill())} of ${money(u.wb)}/wk</div><div><span>Squad</span>${club.squad.length}/${MAX_SQUAD}</div><div><span>Scouts out</span>${u.scouting.length}/${maxScouts()}</div></div></div></div>
     <div class="card" style="margin-top:18px"><div class="row" style="margin-bottom:12px">${seg('src', [['list', 'Transfer list'], ['free', 'Free agents'], ['scouted', 'Scouted']])}${seg('pos', [['All', 'All'], ['GK', 'GK'], ['DF', 'DF'], ['MF', 'MF'], ['FW', 'FW']])}${tf.src !== 'scouted' ? seg('real', [['yes', 'Realistic targets'], ['no', 'Everyone']]) : ''}</div>
       ${rows ? `<div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th>Pos</th><th class="n">Age</th><th>Club</th><th>Rating</th><th class="n">Price</th><th class="n">Wants/wk</th></tr></thead><tbody>${rows}</tbody></table></div>`
         : `<p class="dim">${tf.src === 'scouted' ? 'No scouting reports yet. Open any player, here or through the League tab, and send a scout.' : 'Nobody matches.'}</p>`}
@@ -1307,17 +1625,79 @@ function poBracket(t) {
   else h += `<p class="small dim" style="margin:10px 0 4px">Semi-finals</p><div class="results">${S.po.ties[t].map(([a, b]) => `<div><span>${esc(C(a).name)}</span><span>v</span><span>${esc(C(b).name)}</span></div>`).join('')}</div>`;
   return h;
 }
+function topScorersHTML(t) {
+  const ps = S.clubs.filter(c => c.tier === t).flatMap(c => c.squad.map(P)).filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals || b.assists - a.assists).slice(0, 10);
+  if (!ps.length) return '';
+  return `<div class="card"><h3>Top scorers</h3><div class="tablewrap"><table class="t"><tbody>${ps.map(p => `<tr class="click ${p.club === S.user.clubId ? 'me' : ''}" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}</td><td>${badge(C(p.club), true)}<span class="small dim">${C(p.club).short}</span></td><td class="n"><b>${p.goals}</b></td></tr>`).join('')}</tbody></table></div><p class="small dim" style="margin-top:6px">Goals in all competitions.</p></div>`;
+}
+function cupHTML() {
+  const cup = S.cup, segs = cupSeg();
+  if (!cup) return `${segs}<div class="card"><h3>${CUP_NAME}</h3><p class="dim">The ${CUP_NAME} starts next season. Every club in the five divisions enters.</p></div>`;
+  const rounds = cup.results.map((res, r) => `<div class="card"><h3>${CUP_ROUNDS[r]}</h3>${resultsHTML(res.filter(x => r >= 2 || x.h === S.user.clubId || x.a === S.user.clubId || C(x.h).tier <= 1 || C(x.a).tier <= 1 || Math.abs(C(x.h).tier - C(x.a).tier) >= 2))}${r < 2 ? '<p class="small dim" style="margin-top:6px">Your tie, the top clubs and the shocks.</p>' : ''}</div>`).reverse().join('');
+  const next = cup.winner == null ? `<div class="card hero"><div class="kicker">After week ${CUP_WEEKS[cup.round]}</div><h3>${CUP_ROUNDS[cup.round]}</h3>${cup.round === 0 ? `<p class="small dim">Byes to the second round: ${cup.byes.map(id => esc(C(id).name)).join(', ')}.</p>` : ''}<div class="results">${cup.ties.map(([a, b]) => `<div class="${a === S.user.clubId || b === S.user.clubId ? 'mine' : ''}"><span>${esc(C(a).name)} <span class="dim">${DIV_SHORT[C(a).tier]}</span></span><span>v</span><span>${esc(C(b).name)} <span class="dim">${DIV_SHORT[C(b).tier]}</span></span></div>`).join('')}</div></div>`
+    : `<div class="card hero"><div class="kicker">${CUP_NAME} ${seasonLabel(S.season)}</div><h2>${badge(C(cup.winner))} ${esc(C(cup.winner).name)} win the cup</h2></div>`;
+  const hist = S.cupHistory.length ? `<div class="card"><h3>Past winners</h3>${S.cupHistory.map(h => `<p class="small" style="margin:0 0 4px">${h.season}: <b>${esc(C(h.w).name)}</b> <span class="dim">beat ${esc(C(h.r).name)}</span></p>`).join('')}</div>` : '';
+  return `${segs}<div class="grid"><div class="stack">${next}${rounds}</div><div class="stack"><div class="card"><h3>Your cup run</h3><p class="small">${esc(cupStatus())}</p><p class="small dim">Every club from the Premier Division to the Conference enters. Draws go to penalties. Win a round for prize money; beat a club from a higher division and your reputation grows.</p></div>${hist}</div></div>`;
+}
+const cupSeg = () => `<div class="row" style="margin-bottom:14px"><div class="seg">${DIVS.map((d, i) => `<button class="${i === leagueTier || (leagueTier == null && i === me().tier) ? 'on' : ''}" onclick="leagueTier=${i};render()">${DIV_SHORT[i]}</button>`).join('')}<button class="${leagueTier === 'cup' ? 'on' : ''}" onclick="leagueTier='cup';render()">CUP</button></div></div>`;
 function leagueHTML() {
+  if (leagueTier === 'cup') return cupHTML();
   const t = leagueTier ?? me().tier;
   const fx = S.phase === 'season' && S.fixtures[t][S.week - 1];
-  return `<div class="row" style="margin-bottom:14px"><div class="seg">${DIVS.map((d, i) => `<button class="${i === t ? 'on' : ''}" onclick="leagueTier=${i};render()">${DIV_SHORT[i]}</button>`).join('')}</div></div>
+  return `${cupSeg()}
     <div class="grid"><div class="card"><h3>${DIVS[t]}${S.phase === 'summer' ? ' · final table' : ''}</h3>${tableHTML(t, false)}</div>
     <div class="stack">
       ${S.lastResults[t] ? `<div class="card"><h3>Latest results</h3>${resultsHTML(S.lastResults[t])}</div>` : ''}
       ${fx ? `<div class="card"><h3>Week ${S.week} fixtures</h3><div class="results">${fx.map(([h, a]) => `<div class="${h === S.user.clubId || a === S.user.clubId ? 'mine' : ''}"><span>${esc(C(h).name)}</span><span>v</span><span>${esc(C(a).name)}</span></div>`).join('')}</div></div>` : ''}
       ${S.po && t > 0 ? `<div class="card"><h3>Play-offs</h3>${poBracket(t)}</div>` : ''}
+      ${topScorersHTML(t)}
       <p class="small dim">Tap a club to see its squad and approach its players.</p>
     </div></div>`;
+}
+
+// ----- Club
+function facText(k, club) {
+  const l = facOf(club)[k];
+  if (k === 'stadium') return `Home crowds of about ${Math.round(GATE[club.tier] * capMult(club)).toLocaleString('en-GB')} in the ${DIVS[club.tier]}.`;
+  if (k === 'training') return `Players get back ${l > 1 ? `${l - 1} extra fitness a week` : 'the normal fitness each week'}, young players develop ${['slowly', 'steadily', 'well', 'quickly', 'very quickly'][l - 1]}, and older players decline ${l >= 3 ? 'more slowly' : 'at the usual rate'}.`;
+  return `${2 + Math.floor(l / 2)} youngsters come through each summer, ${['raw', 'promising', 'good', 'very good', 'excellent'][l - 1]} on average.`;
+}
+function clubHTML() {
+  const u = S.user, club = me(), f = facOf(club), R = u.rec;
+  const facRow = k => { const l = f[k], cost = l < 5 ? facCost(club, k) : 0;
+    return `<div class="msg"><div class="spread"><b>${FAC[k]}</b><span class="rnum">Level ${l} ${'■'.repeat(l)}${'□'.repeat(5 - l)}</span></div><p>${facText(k, club)}</p>
+      <div class="row">${l < 5 ? `<button class="btn sm" onclick="upgradeFac('${k}')" ${u.bank < cost ? 'disabled' : ''}>Upgrade · ${money(cost)}</button>${u.bank < cost ? `<span class="small dim">You have ${money(u.bank)} in the bank.</span>` : ''}` : '<span class="good small">Top level</span>'}</div></div>`; };
+  const sq = club.squad.map(P).filter(p => p.apps > 0).sort((a, b) => b.goals - a.goals || b.apps - a.apps);
+  const stats = sq.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th class="n">Apps</th><th class="n">Gls</th><th class="n">Ast</th><th class="n">Avg</th><th class="n">MOTM</th></tr></thead><tbody>${sq.map(p => `<tr class="click" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}</td><td class="n">${p.apps}</td><td class="n">${p.goals}</td><td class="n">${p.assists}</td><td class="n">${p.rn ? (p.rsum / p.rn).toFixed(1) : '–'}</td><td class="n">${p.motm || ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="dim small">No games played yet this season.</p>';
+  const rec = (label, v) => `<div><span>${label}</span>${v || '<i class="dim" style="font-style:normal">None yet</i>'}</div>`;
+  const legends = Object.values(u.legends);
+  const top = (key) => legends.filter(l => l[key] > 0).sort((a, b) => b[key] - a[key]).slice(0, 5).map(l => `${esc(l.name)} (${l[key]})`).join('<br>');
+  const rival = club.rival != null ? C(club.rival) : null, d = u.derby;
+  return `<div class="grid"><div class="stack">
+    <div class="card hero"><div class="kicker">${esc(club.name)}</div><h2>Facilities</h2><p class="small dim">Paid for out of the bank, not the transfer budget. Facilities stay with the club if you move on.</p>${['stadium', 'training', 'academy'].map(facRow).join('')}</div>
+    <div class="card"><h3>This season</h3>${stats}</div>
+  </div><div class="stack">
+    <div class="card"><h3>Rivals</h3>${rival ? `<p>${clubLink(rival)} <span class="small dim">${DIVS[rival.tier]}</span></p><p class="small dim">Derbies bring bigger crowds and matter more to the fans and the board. Your record: won ${d.w}, drew ${d.d}, lost ${d.l}.</p>` : '<p class="dim small">No local rival.</p>'}</div>
+    <div class="card"><h3>Backroom staff</h3>${u.staff.length ? u.staff.map(x => `<p class="small" style="margin:0 0 4px"><b>${esc(x.name)}</b>, ${x.role.toLowerCase()} <span class="dim">since ${x.since}</span></p>`).join('') : '<p class="small dim">No former players on the staff yet. When a club legend retires, they may offer to join as a coach (players improve faster) or a scout (one more scout, sharper reports).</p>'}</div>
+    <div class="card"><h3>Your records</h3><div class="facts">
+      ${rec('Biggest win', R.win && `${R.win.gf}-${R.win.ga} v ${esc(R.win.opp)}, ${R.win.season}`)}
+      ${rec('Heaviest defeat', R.loss && `${R.loss.gf}-${R.loss.ga} v ${esc(R.loss.opp)}, ${R.loss.season}`)}
+      ${rec('Record signing', R.sign && `${esc(R.sign.name)}, ${money(R.sign.fee)} from ${esc(R.sign.from)}, ${R.sign.season}`)}
+      ${rec('Record sale', R.sale && `${esc(R.sale.name)}, ${money(R.sale.fee)} to ${esc(R.sale.to)}, ${R.sale.season}`)}
+      ${rec('Record crowd', R.crowd && `${R.crowd.n.toLocaleString('en-GB')} v ${esc(R.crowd.opp)}, ${R.crowd.season}`)}
+      ${rec('Most goals in a season', R.goals && `${esc(R.goals.name)}, ${R.goals.n}, ${R.goals.season}`)}
+    </div>
+    <h3 style="margin-top:12px">Your legends</h3><div class="facts"><div><span>Most appearances</span>${top('apps') || '<i class="dim" style="font-style:normal">None yet</i>'}</div><div><span>Most goals</span>${top('goals') || '<i class="dim" style="font-style:normal">None yet</i>'}</div></div>
+    <p class="small dim">Counted across every club you've managed.</p></div>
+  </div></div>`;
+}
+function finaleHTML() {
+  const u = S.user;
+  return `<div style="max-width:720px;margin:0 auto"><div class="card hero"><div class="kicker">The end of the road</div><h2>${esc(u.name)}, national team manager</h2>
+    <p>From the Conference to the top of the game. Your club career is over, and the whole country is behind you now.</p>
+    ${u.trophies.length ? `<p><b>Honours:</b> ${u.trophies.map(esc).join(' · ')}</p>` : ''}
+    <div class="tablewrap"><table class="t"><thead><tr><th>Season</th><th>Club</th><th>Div</th><th class="n">Pos</th><th></th></tr></thead><tbody>${u.history.map(h => `<tr><td>${h.season}</td><td>${esc(h.club)}</td><td>${h.club === 'National team' ? '' : DIV_SHORT[h.tier]}</td><td class="n">${h.pos ?? '–'}</td><td>${esc(h.note)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="exportSave()">Download backup</button><button class="btn go" onclick="askConfirm('Start a brand new career? This one will be replaced.', 'Start again', newCareer)">Start a new career</button></div></div></div>`;
 }
 
 // ----- Office
@@ -1349,13 +1729,19 @@ function matchHTML() {
     return `<div class="${e.cls}">${e.cls === 'ht' ? e.text : `<span class="min">${e.min}'</span>${team}${esc(e.text)}`}</div>`;
   }).join('') || '<div class="q">The teams are out. Kick-off!</div>';
   let panel = '';
-  if (M.done) panel = `<div class="controls"><button class="btn go" onclick="endMatch()">Continue</button></div>`;
+  if (M.done) {
+    const motm = M.motm != null ? P(M.motm) : null;
+    panel = `<div class="controls"><button class="btn go" onclick="endMatch()">Continue</button></div>
+      <div class="card tactics"><h3>Player ratings</h3>${motm ? `<p class="small">Man of the match: <b>${esc(pname(motm))}</b> <span class="dim">(${esc(C(motm.club).name)}, ${M.ratings[M.motm]})</span></p>` : ''}
+      <div class="facts">${mine.played.map(pid => { const p = P(pid), r = M.ratings[pid]; return `<div><span>${(mine.roles && mine.roles[pid]) || p.pos}${mine.starters.includes(pid) ? '' : ' · sub'}</span>${esc(p.last)} <b class="${r >= 7.5 ? 'good' : r < 5.5 ? 'bad' : ''}">${r}</b>${pid === M.motm ? ' ★' : ''}</div>`; }).join('')}</div></div>`;
+  }
   else {
     panel = `<div class="controls"><button class="btn ${M.paused ? 'go' : ''}" onclick="pauseMatch()">${M.half ? 'Kick off the second half' : M.paused ? 'Resume' : 'Pause · tactics'}</button>
       <div class="seg"><button class="${speed === 1 ? 'on' : ''}" onclick="setSpeed(1)">Normal</button><button class="${speed === 2 ? 'on' : ''}" onclick="setSpeed(2)">Fast</button><button onclick="skipMatch()">Skip to end</button></div></div>`;
     if (M.paused) {
       const b = bench(M, mi);
       panel += `<div class="card tactics"><h3>${M.half ? 'Half-time team talk' : 'Tactics'}</h3>
+        ${M.half ? `<div class="row"><span class="small dim">Team talk:</span>${mine.talk ? `<span class="small">Done.</span>` : `<div class="seg"><button onclick="teamTalk('praise')">Praise</button><button onclick="teamTalk('calm')">Keep calm</button><button onclick="teamTalk('rollicking')">Rollicking</button></div>`}</div>` : ''}
         <div class="row"><span class="small dim">Style:</span><div class="seg">${STYLES.map(s => `<button class="${mine.style === s ? 'on' : ''}" onclick="matchStyle('${s}')">${s}</button>`).join('')}</div></div>
         <div class="row"><span class="small dim">Substitution (${mine.subs}/3):</span>
           <select id="subOff" aria-label="Player coming off" ${mine.subs >= 3 ? 'disabled' : ''}><option value="">Off…</option>${mine.xi.map(x => `<option value="${x.pid}">${x.role} ${esc(P(x.pid).last)} (${P(x.pid).fitness}%)</option>`).join('')}</select>
@@ -1366,7 +1752,7 @@ function matchHTML() {
   }
   return `<div style="max-width:820px;margin:0 auto"><div class="scoreboard">
     <div class="sb-top"><div class="sb-team">${esc(ch.name)}</div><div class="sb-score">${h.goals}-${a.goals}</div><div class="sb-team away">${esc(ca.name)}</div></div>
-    <div class="sb-clock">${M.done ? 'FULL TIME' : M.minute ? M.minute + "'" : "KICK-OFF"}${M.kind === 'po' ? (M.neutral ? ' · PLAY-OFF FINAL' : ' · PLAY-OFF SEMI') : ''}</div>
+    <div class="sb-clock">${M.done ? 'FULL TIME' : M.minute ? M.minute + "'" : "KICK-OFF"}${M.kind === 'po' ? (M.neutral ? ' · PLAY-OFF FINAL' : ' · PLAY-OFF SEMI') : M.kind === 'cup' ? ` · CUP ${CUP_ROUNDS[S.cup.round].toUpperCase()}` : ''}${isDerby(M) ? ' · DERBY' : ''}</div>
     <div class="scorers"><div>${scorers(h)}</div><div>${scorers(a)}</div></div>
     <div class="sb-stats"><div>${h.shots} shots (${h.on})</div><div>POSS ${poss}%</div><div>${a.shots} shots (${a.on})</div></div>
     <div class="possbar"><i style="width:${poss}%;background:${ch.color}"></i><i style="flex:1;background:${ca.color}"></i></div>
@@ -1389,9 +1775,11 @@ function openPlayer(pid) {
   const u = S.user, mine = p.club === u.clubId, club = p.club != null ? C(p.club) : null, e = estimate(p), open = windowOpen();
   const vlo = value(p, e.lo), vhi = value(p, e.hi);
   let actions = '';
-  if (mine) {
+  if (p.prospect) {
+    actions = `<div class="row"><button class="btn go" onclick="signProspect(${p.id});closeModal()">Sign from the academy · ${money(p.wage)}/wk</button></div>`;
+  } else if (mine) {
     actions = p.loanFrom != null ? `<p class="small dim">On loan from ${esc(C(p.loanFrom).name)} until the summer.</p>`
-      : `<div class="row"><button class="btn" onclick="toggleList(${p.id})">${p.listed ? 'Take off the transfer list' : 'Put on the transfer list'}</button><button class="btn bad" onclick="releasePlayer(${p.id})">Release</button></div>`;
+      : `<div class="row">${p.contract < 3 ? `<button class="btn go" onclick="renewContract(${p.id})">New deal · ${money(renewWage(p))}/wk</button>` : ''}<button class="btn" onclick="toggleList(${p.id})">${p.listed ? 'Take off the transfer list' : 'Put on the transfer list'}</button><button class="btn bad" onclick="releasePlayer(${p.id})">Release</button></div>`;
   } else {
     const sc = u.scouting.includes(p.id) ? '<span class="tag scout">Scout watching</span>' : p.know >= 75 ? '<span class="tag scout">Scouted</span>' : `<button class="btn" onclick="scout(${p.id})">Send a scout</button>`;
     if (!club) actions = `<div class="row">${sc}<button class="btn go" onclick="signFree(${p.id})" ${open ? '' : 'disabled'}>Offer a contract · ${money(demand(p))}/wk</button></div>`;
@@ -1403,11 +1791,12 @@ function openPlayer(pid) {
     }
   }
   openModal(`<div class="kicker">${POS_NAME[p.pos]} · ${p.age}</div><h2>${esc(pname(p))}</h2>
-    <p class="small">${club ? `${clubLink(club)} <span class="dim">${DIVS[club.tier]}</span>` : '<span class="dim">Free agent</span>'}
-      ${p.listed ? '<span class="tag list">Transfer listed</span>' : ''}${p.injured ? `<span class="tag inj">Injured ${p.injured}w</span>` : ''}${p.suspended ? '<span class="tag inj">Suspended</span>' : ''}</p>
+    <p class="small">${club ? `${clubLink(club)} <span class="dim">${DIVS[club.tier]}</span>` : `<span class="dim">${p.prospect ? 'Academy prospect' : 'Free agent'}</span>`}
+      ${p.listed ? '<span class="tag list">Transfer listed</span>' : ''}${p.homegrown ? '<span class="tag scout">Academy graduate</span>' : ''}${p.injured ? `<span class="tag inj">Injured ${p.injured}w</span>` : ''}${p.suspended ? '<span class="tag inj">Suspended</span>' : ''}</p>
     <div style="margin:12px 0 4px">${ratingHTML(p)} <span class="small dim">${knowWord(p.know)}</span></div>
     <div class="facts"><div><span>Potential</span>${potentialWord(p)}</div><div><span>Form</span>${formAvg(p)}</div><div><span>Fitness</span>${p.fitness}%</div>
-      <div><span>Morale</span>${moraleWord(p.morale)}</div><div><span>This season</span>${p.apps} apps, ${p.goals} goals</div>
+      <div><span>Morale</span>${moraleWord(p.morale)}</div><div><span>This season</span>${p.apps} apps, ${p.goals} goals, ${p.assists} assists${p.rn ? `, avg ${(p.rsum / p.rn).toFixed(1)}` : ''}${p.motm ? `, ${p.motm}× MOTM` : ''}</div>
+      ${p.club != null && !p.prospect ? `<div><span>Contract</span>${p.loanFrom != null ? 'On loan' : `Until summer ${contractEnd(p)}`}</div>` : ''}
       <div><span>${mine ? 'Wage' : 'Wants'}</span>${money(mine ? p.wage : demand(p))}/wk</div><div><span>Valued at</span>${vlo === vhi ? money(vlo) : `${money(vlo)}–${money(vhi)}`}</div></div>
     <div class="quote">"${opinion(p)}" <span class="dim">(your assistant)</span></div>
     ${actions}<div class="answer" id="answer"></div>`);
@@ -1418,6 +1807,7 @@ function openClub(cid) {
   const ps = c.squad.map(P).sort((a, b) => order[a.pos] - order[b.pos] || estimate(b).c - estimate(a).c);
   openModal(`<div class="kicker">${DIVS[c.tier]}${pos ? ` · ${ord(pos)}` : ''}</div><h2>${badge(c)} ${esc(c.name)}</h2>
     ${cid !== S.user.clubId ? `<p class="small dim">Plays ${c.formation}, ${c.style.toLowerCase()}. Tap a player to scout or bid.</p>` : ''}
+    ${c.rival != null ? `<p class="small dim">Local rivals: ${esc(C(c.rival).name)}${c.rival === S.user.clubId ? ' (that\'s you)' : ''}.</p>` : ''}
     <div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th></th></tr></thead><tbody>
     ${ps.map(p => `<tr class="click" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}</td><td class="pos">${p.pos}</td><td class="n">${p.age}</td><td>${ratingHTML(p)}</td><td>${p.listed ? '<span class="tag list">Listed</span>' : ''}${p.injured ? '<span class="tag inj">Inj</span>' : ''}</td></tr>`).join('')}
     </tbody></table></div>`);
