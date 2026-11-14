@@ -978,10 +978,10 @@ function askLoan(pid) {
   answer(`<b class="good">Loan agreed.</b> ${p.last} is yours until the summer.`);
 }
 function toggleList(pid) { const p = P(pid); p.listed = !p.listed; save(); render(); openPlayer(pid); }
-function releasePlayer(pid) {
+function releasePlayer(pid, confirmed) {
   const p = P(pid), cost = p.wage * 8;
   if (me().squad.length <= MIN_SQUAD) return toast(`You need at least ${MIN_SQUAD} players.`);
-  if (!confirm(`Release ${pname(p)}? Paying up the contract costs ${money(cost)}.`)) return;
+  if (!confirmed) return askConfirm(`Release ${esc(pname(p))}? Paying up the contract costs ${money(cost)}.`, 'Release', () => releasePlayer(pid, true));
   S.user.bank -= cost; toFree(p); p.know = Math.min(p.know, 60);
   mail(`${pname(p)} released`, `${p.last} has left the club. The pay-off cost ${money(cost)}.`);
   closeModal(); save(); render();
@@ -1056,7 +1056,38 @@ function continueAfterSack() {
 
 // ===================== Saving =====================
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } }
-function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 1 && s.user ? s : null; } catch (e) { return null; } }
+function validSave(s) { return s && s.v === 1 && s.user && s.clubs && s.players ? s : null; }
+function load() { try { return validSave(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
+
+// Backups: download the career as a file, and load one back (also moves a career to another device).
+function exportSave() {
+  const s = view === 'main' ? S : load();
+  if (!s) return toast('There is no career to back up yet.');
+  const name = `up-the-divisions-${(s.user.name || 'career').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${seasonLabel(s.season).replace(/[^0-9]+/g, '-')}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(s)], { type: 'application/json' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('Backup downloaded.');
+}
+function importSave() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = () => {
+    const file = inp.files[0]; if (!file) return;
+    file.text().then(txt => {
+      let s = null; try { s = validSave(JSON.parse(txt)); } catch (e) { /* not JSON */ }
+      if (!s) return toast("That file isn't an Up the Divisions backup.");
+      const go = () => {
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked: still play it this session */ }
+        startOptions = null; S = s; teamRatingCache.clear(); view = 'main'; tab = 'home'; render();
+        toast(`Welcome back, ${s.user.name}.`);
+      };
+      if (view === 'main' || load()) askConfirm(`Load the backup of ${esc(s.user.name)}'s career (${esc(seasonLabel(s.season))})? It replaces the career you have now.`, 'Load backup', go);
+      else go();
+    });
+  };
+  inp.click();
+}
 
 // ===================== Views =====================
 const badge = (c, sm) => `<span class="badge${sm ? ' sm' : ''}" style="background:${c.color}">${sm ? c.short.slice(0, 3) : c.short}</span>`;
@@ -1106,7 +1137,9 @@ function startHTML() {
       <div class="small dim">Three Conference clubs need a manager. Pick one:</div>
       <div class="clubs">${startOptions.map(id => { const c = C(id); return `<button class="clubpick ${pickClub === id ? 'on' : ''}" onclick="pickClub=${id};render()">${badge(c)}<div class="nm">${esc(c.name)}</div><div class="small dim">${tip(c)}</div></button>`; }).join('')}</div>
       <button class="btn go" onclick="startCareer()">${saved ? 'Start new career (replaces the save)' : 'Take the job'}</button>
-    </div></div></div>`;
+    </div>
+    <p class="small dim" style="margin-top:14px">Have a backup file? <button class="btn sm" onclick="importSave()">Load a backup</button>${saved ? ` <button class="btn sm" onclick="exportSave()">Back up this career</button>` : ''}</p>
+    </div></div>`;
 }
 function resume() { S = load(); teamRatingCache.clear(); view = 'main'; tab = 'home'; render(); }
 function startCareer() {
@@ -1180,7 +1213,7 @@ function boardCard() {
 function reviewCard() {
   const R = S.review, u = S.user;
   const offers = R.offers.length ? `<h3 style="margin-top:14px">Job offers</h3><p class="small dim">Your reputation is growing. Other clubs want you.</p>
-    ${R.offers.map(id => { const c = C(id); return `<div class="spread msg"><span>${badge(c, true)}<b style="display:inline">${esc(c.name)}</b> <span class="dim small">${DIVS[c.tier]}</span></span><button class="btn sm" onclick="if(confirm('Leave for ' + C(${id}).name + '?'))takeJob(${id})">Take the job</button></div>`; }).join('')}` : '';
+    ${R.offers.map(id => { const c = C(id); return `<div class="spread msg"><span>${badge(c, true)}<b style="display:inline">${esc(c.name)}</b> <span class="dim small">${DIVS[c.tier]}</span></span><button class="btn sm" onclick="askConfirm('Leave ' + esc(me().name) + ' for ' + esc(C(${id}).name) + '?', 'Take the job', () => takeJob(${id}))">Take the job</button></div>`; }).join('')}` : '';
   return `<div class="card hero"><div class="kicker">Season ${R.label} review</div>
     <h2>${R.champs ? 'Champions!' : R.poWin ? 'Play-off winners!' : R.promoted ? 'Promoted!' : R.relegated ? 'Relegated' : `Finished ${ord(R.pos)}`}</h2>
     <p>${R.champs || R.promoted ? `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}. Next season: the ${DIVS[R.nextTier]}.` : R.relegated ? `You finished ${ord(R.pos)} and drop into the ${DIVS[R.nextTier]}.` : `You finished ${ord(R.pos)} in the ${DIVS[R.tier]}.`}</p>
@@ -1301,7 +1334,7 @@ function officeHTML() {
       ${u.trophies.length ? `<p><b>Honours:</b> ${u.trophies.map(esc).join(' · ')}</p>` : ''}
       <h3 style="margin-top:14px">Career</h3>${u.history.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Season</th><th>Club</th><th>Div</th><th class="n">Pos</th><th></th></tr></thead><tbody>${u.history.map(h => `<tr><td>${h.season}</td><td>${esc(h.club)}</td><td>${DIV_SHORT[h.tier]}</td><td class="n">${h.pos ?? '–'}</td><td>${esc(h.note)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="dim small">Your first season.</p>'}
     </div>
-    <div class="card"><h3>Game</h3><p class="small dim">Your career saves automatically on this device.</p><button class="btn bad" onclick="if(confirm('Abandon this career and start again?')){localStorage.removeItem(SAVE_KEY);startOptions=null;view='start';render()}">New career</button></div>
+    <div class="card"><h3>Game</h3><p class="small dim">Your career saves automatically in this browser. Download a backup now and then, in case the browser's data gets cleared, or to carry on on another device.</p><div class="row" style="margin-bottom:12px"><button class="btn" onclick="exportSave()">Download backup</button><button class="btn" onclick="importSave()">Load a backup</button></div><button class="btn bad" onclick="askConfirm('Abandon this career and start again?', 'Start again', newCareer)">New career</button></div>
     </div></div>`;
 }
 
@@ -1388,6 +1421,15 @@ function openClub(cid) {
     <div class="tablewrap"><table class="t"><thead><tr><th>Name</th><th>Pos</th><th class="n">Age</th><th>Rating</th><th></th></tr></thead><tbody>
     ${ps.map(p => `<tr class="click" onclick="openPlayer(${p.id})"><td class="nm">${esc(pname(p))}</td><td class="pos">${p.pos}</td><td class="n">${p.age}</td><td>${ratingHTML(p)}</td><td>${p.listed ? '<span class="tag list">Listed</span>' : ''}${p.injured ? '<span class="tag inj">Inj</span>' : ''}</td></tr>`).join('')}
     </tbody></table></div>`);
+}
+let pendingYes = null;
+function askConfirm(msg, yesLabel, fn) {
+  pendingYes = fn;
+  openModal(`<h2>Are you sure?</h2><p>${msg}</p><div class="row"><button class="btn go" onclick="const f = pendingYes; pendingYes = null; closeModal(); f()">${yesLabel}</button><button class="btn" onclick="closeModal()">Cancel</button></div>`);
+}
+function newCareer() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+  startOptions = null; view = 'start'; render();
 }
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
