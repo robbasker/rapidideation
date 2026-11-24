@@ -14,13 +14,15 @@ on:
     - cron: "47 16 * * *"
     - cron: "47 21 * * *"
     - cron: "47 22 * * *"
+    # Every hour on the hour, for the train clock (7am to 10pm Eastern; other hours do nothing).
+    - cron: "0 * * * *"
   # Adds a "Run workflow" button on GitHub to send any of them straight away.
   workflow_dispatch:
     inputs:
       what:
         description: "What to send"
         type: choice
-        options: [riddle, riddle answer, on this day, halloween, christmas, list Sonos favourites, whatever is due now]
+        options: [riddle, riddle answer, on this day, halloween, christmas, train clock, list Sonos favourites, whatever is due now]
         default: riddle
       date:
         description: "Pretend it's this date, like 12-24 (leave empty for today)"

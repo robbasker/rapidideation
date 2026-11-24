@@ -1,0 +1,28 @@
+# Where the train clock's trains come from: Metro-North stations, one per line.
+# Each name must fit on one line of the Note (15 characters at most).
+# Hudson Line
+Poughkeepsie
+Beacon
+Cold Spring
+Peekskill
+Croton-Harmon
+Tarrytown
+Yonkers
+# Harlem Line
+Wassaic
+Brewster
+Katonah
+Chappaqua
+White Plains
+Scarsdale
+# New Haven Line
+New Haven
+Bridgeport
+Westport
+Norwalk
+Stamford
+Greenwich
+Rye
+New Canaan
+Danbury
+Waterbury

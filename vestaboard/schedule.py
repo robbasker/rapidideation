@@ -2,10 +2,11 @@
 """
 What goes on the Vestaboard, and when. GitHub runs this a few times a day.
 
-The plan is the SLOTS list below, in US Eastern time. Each slot is set 13 minutes
-before the hour because GitHub is busiest on the hour and often starts late. If a
-run starts so late that it would cover up the next slot's message, or more than
-3 hours late, it's skipped rather than showing up at the wrong time of day.
+The plan is the SLOTS list below, in US Eastern time. The daily slots are set 13
+minutes before the hour because GitHub is busiest on the hour and often starts late;
+the train clock is on the hour. If a run starts so late that it would cover up the
+next slot's message, or more than 3 hours late (10 minutes for the clock), it's
+skipped rather than showing up at the wrong time of day.
 
     python3 schedule.py --plan                 show what's planned today (works with --date)
     python3 schedule.py --send riddle          send one now (works with --date and --preview)
@@ -25,23 +26,30 @@ import christmas
 import halloween
 import on_this_day
 import riddle
+import train_clock
 from daily import HERE, TIME_ZONE, check, parse_date, send, today
+
+
+MAX_LATE = timedelta(hours=3)
 
 
 @dataclass
 class Slot:
     time: time
     shows: list  # the first one with something to show that day goes up
+    max_late: timedelta = MAX_LATE  # a run that starts later than this is skipped
 
 
-SLOTS = [
+SLOTS = sorted([
     Slot(time(7, 47), [christmas.CHRISTMAS, halloween.HALLOWEEN]),
     Slot(time(8, 47), [on_this_day.ON_THIS_DAY]),
     Slot(time(11, 47), [riddle.RIDDLE]),
     Slot(time(17, 47), [riddle.ANSWER]),
-]
+    # The train clock on the hour, 7am to 10pm. It shows the time it's sent, so it's
+    # skipped if it starts more than 10 minutes late rather than putting up a stale time.
+    *(Slot(time(hour, 0), [train_clock.TRAIN_CLOCK], timedelta(minutes=10)) for hour in range(7, 23)),
+], key=lambda slot: slot.time)
 SHOWS = {show.name: show for slot in SLOTS for show in slot.shows}
-MAX_LATE = timedelta(hours=3)
 WORKFLOW = os.path.join(HERE, "..", ".github", "workflows", "vestaboard.yml")
 
 
@@ -56,11 +64,17 @@ def due_show(slot, day):
 
 
 def planned_time(cron, now):
-    """The Eastern time a GitHub run was planned for, from its cron line like "47 11 * * *"."""
-    minute, hour = (int(part) for part in cron.split()[:2])
-    planned = now.astimezone(timezone.utc).replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if planned > now:
-        planned -= timedelta(days=1)
+    """The Eastern time a GitHub run was planned for, from its cron line like "47 11 * * *",
+    or "0 * * * *" for every hour."""
+    minute, hour = cron.split()[:2]
+    if hour == "*":
+        planned = now.astimezone(timezone.utc).replace(minute=int(minute), second=0, microsecond=0)
+        if planned > now:
+            planned -= timedelta(hours=1)
+    else:
+        planned = now.astimezone(timezone.utc).replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+        if planned > now:
+            planned -= timedelta(days=1)
     return planned.astimezone(TIME_ZONE)
 
 
@@ -100,8 +114,8 @@ def run_slot(slot, planned, now):
     late = now - planned
     minutes = int(late.total_seconds() // 60)
     print(f"This is the {clock(slot.time)} {show.name}. It started {minutes} minute{'' if minutes == 1 else 's'} late.")
-    if late > MAX_LATE:
-        print(f"That's more than {int(MAX_LATE.total_seconds() // 3600)} hours late, so it's skipped today.")
+    if late > slot.max_late:
+        print(f"That's more than {how_long(slot.max_late)} late, so it's skipped.")
         return None
     for later in SLOTS[SLOTS.index(slot) + 1:]:
         later_show = due_show(later, day)
@@ -115,11 +129,19 @@ def run_slot(slot, planned, now):
     return show
 
 
+def how_long(span):
+    """3 hours, 10 minutes."""
+    minutes = int(span.total_seconds() // 60)
+    return f"{minutes // 60} hours" if minutes % 60 == 0 else f"{minutes} minutes"
+
+
 def print_plan(day):
     print(f"The plan for {day:%A, %B} {day.day}:")
     for slot in SLOTS:
         show = due_show(slot, day)
-        what = f"{show.name:14} {show.text_for(day).replace(chr(10), ' / ')}" if show else "(nothing)"
+        # The clock shows the time it goes up, so show the slot's own time rather than now.
+        text = train_clock.text_at(day, slot.time) if show is train_clock.TRAIN_CLOCK else show and show.text_for(day)
+        what = f"{show.name:14} {text.replace(chr(10), ' / ')}" if show else "(nothing)"
         print(f"  {clock(slot.time):>7}  {what}")
 
 
@@ -129,6 +151,8 @@ def check_workflow():
         crons = set(re.findall(r'cron:\s*"([^"]+)"', f.read()))
     problems = 0
     for slot in SLOTS:
+        if f"{slot.time.minute} * * * *" in crons:  # an every-hour line covers it
+            continue
         for hours_behind in (4, 5):  # US Eastern is 4 hours behind UTC in summer, 5 in winter
             needed = f"{slot.time.minute} {(slot.time.hour + hours_behind) % 24} * * *"
             if needed not in crons:

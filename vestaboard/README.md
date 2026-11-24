@@ -143,6 +143,7 @@ US Eastern time:
 | 8:47am | On this day | Any date with a headline |
 | 11:47am | Riddle, with the thinking jingle | Every day |
 | 5:47pm | Riddle answer, with the drum roll | Every day |
+| On the hour, 7am–10pm | Train clock | Every day |
 
 **See what's planned:** `python3 schedule.py` shows today's plan, and
 `python3 schedule.py --date 12-16` shows any other day.
@@ -177,6 +178,30 @@ doesn't, you'll see a red ✗ next to your change, and the log says which line t
 **Note:** GitHub pauses scheduled jobs if nothing in the repository changes for 60
 days. It emails you first, and you can switch them back on from the Actions tab
 (or just edit a riddle).
+
+## Train clock
+
+Every hour on the hour, from 7am to 10pm, the Note turns into a station arrivals
+board: a train coming in to Grand Central from somewhere on the Metro-North lines,
+with the time and its track.
+
+```
+      NEW HAVEN
+ 🟩GRAND CENTRAL🟩
+   10:00  TRK 23
+```
+
+It shows the time it actually goes up, and it's skipped if it starts more than 10
+minutes late, so it never shows the wrong time. It does cover whatever was there,
+including the riddle and its answer.
+
+**Change the stations:** edit `stations.txt`, one per line, 15 characters at most.
+
+**Show it now:** **Actions → Vestaboard → Run workflow**, choose **train clock**.
+
+**On time:** GitHub's own hourly runs are often too late, so the clock really needs the
+outside timer: in cron-job.org, set the job's **Minutes** to **0 and 47** and its
+**Hours** to **7 to 22**.
 
 ## Daily riddle
 
